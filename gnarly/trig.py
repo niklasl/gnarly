@@ -4,8 +4,8 @@ from typing import Iterator, NamedTuple, TextIO
 from pyoxigraph import (BlankNode, DefaultGraph, Literal, NamedNode, Quad,
                         RdfFormat, Store, Triple, parse)
 
-from . import (RDF_NIL_NODE, RDFNS, Description, Document, List, Node,
-               Reference, Term)
+from . import (RDF_NIL_NODE, RDF_TYPE_NODE, RDFNS, Description, Document, List,
+               Node, Reference, Term)
 
 RDF_DIRLANGSTRING_NODE = NamedNode(f"{RDFNS}dirLangString")
 RDF_LANGSTRING_NODE = NamedNode(f"{RDFNS}langString")
@@ -23,7 +23,7 @@ PNAME_LOCAL_ESC = re.compile(r"([~!$&'()*+,;=/?#@]|^[.-]|[.-]$|%(?![0-9A-Fa-f]{2
 
 class TrigSettings(NamedTuple):
     indent: str = '  '
-    max_list_width: int = 88
+    max_width: int = 88
     sparql_keywords: bool = True
     long: bool = False
     # dense: bool = False
@@ -70,7 +70,8 @@ class TurtleFormatter:
             case Description():
                 return self.to_str(n.subject)
             case Triple(s, p, o):
-                return f'<<( {self.to_str(s)} {self.to_str(p)} {self.to_str(o)} )>>'
+                pr = "a" if p == RDF_TYPE_NODE else self.to_str(p)
+                return f'<<( {self.to_str(s)} {pr} {self.to_str(o)} )>>'
             case Literal(_):
                 v = n.value
                 if n.datatype == RDF_DIRLANGSTRING_NODE:
@@ -89,7 +90,7 @@ class TurtleFormatter:
                     return v + 'e0'
                 else:
                     v = v.replace('"', r'\"')
-                    return f'{self.stringrepr(v)}^^{n.datatype}'
+                    return f'{self.stringrepr(v)}^^{self.to_str(n.datatype)}'
             case NamedNode(v):
                 return self.shorten(v)
             case BlankNode(v):
@@ -102,7 +103,10 @@ class TrigSerializer:
     settings: TrigSettings
     _indent: str
     _level: int
-    _pending: str | None
+    _pending_separator: str | None
+    _pending_predicate: str | None
+    _linewidth: int
+    _just_indented: bool
 
     def __init__(
         self, out: TextIO, fmt: TurtleFormatter, settings: TrigSettings | None = None
@@ -112,7 +116,10 @@ class TrigSerializer:
         self.settings = settings or TrigSettings()
         self._level = 0
         self._update_indent()
-        self._pending = None
+        self._pending_separator = None
+        self._pending_predicate = None
+        self._linewidth = 0
+        self._just_indented = False
 
     def indent(self):
         self._level += 1
@@ -156,9 +163,7 @@ class TrigSerializer:
     def write_description(self, desc: Description):
         is_blank = isinstance(desc.subject, BlankNode)
 
-        pure_blank = (
-            is_blank and desc.unreferenced and not desc.annotates
-        )
+        pure_blank = is_blank and desc.unreferenced and not desc.annotates
         s_str = "[]" if pure_blank else self.fmt.to_str(desc.subject)
         if desc.list_items is not None:
             self.write_list(desc.list_items, keeplevel=True)
@@ -183,6 +188,17 @@ class TrigSerializer:
         typerepr = self.get_typerepr(desc)
         self.write(s_str + typerepr)
         self.indent()
+
+        if typerepr == "":
+            more_predicates = False
+            for i, (p, _) in enumerate(desc.get_regular_predicate_objects()):
+                if i > 0:
+                    more_predicates = True
+                    break
+
+            if more_predicates:
+                self._pending_separator = ""
+
         self.write_predicate_objects(desc)
 
         if self.settings.long:
@@ -194,7 +210,7 @@ class TrigSerializer:
     def get_typerepr(self, desc) -> str:
         types = ", ".join(self.fmt.to_str(t) for t in desc.get_rdftypes())
         if types:
-            self._pending = " ;"
+            self._pending_separator = " ;"
             return f" a {types}"
         else:
             return ""
@@ -208,27 +224,25 @@ class TrigSerializer:
             same_p = p == prev_p
 
             if same_p:
-                self._pending = " ,"
+                self._pending_separator = " ,"
 
-            if self._pending is not None:
-                self.writeln(self._pending)
-                self._pending = None
+            if self._pending_separator is not None:
+                self.writeln(self._pending_separator)
+                self._pending_separator = None
                 self.write_indent()
-            else:
-                self.write(" ")
 
             if same_p:
                 self.write(self.settings.indent)
             else:
-                self.write(self.fmt.to_str(p) + " ")
+                self._pending_predicate = self.fmt.to_str(p)
 
             prev_p = p
 
             self.write_object(ref)
 
-            self._pending = " ;"
+            self._pending_separator = " ;"
 
-        self._pending = None
+        self._pending_separator = None
 
     def write_object(self, ref: Reference) -> None:
         if isinstance(ref.o, Description) and ref.o.list_items is not None:
@@ -248,6 +262,7 @@ class TrigSerializer:
 
         prev_named = False
         indented = False
+        isnext = False
         for annot in sorted(ref.get_annotations()):
             if prev_named:
                 self.writeln("")
@@ -264,17 +279,24 @@ class TrigSerializer:
                 and isinstance(annot.subject, BlankNode)
                 and any(annot.get_regular_predicate_objects())
             ):
+                self.indent()
+                if isnext and not prev_named:
+                    self.writeln("")
+                    self.write_indent()
+                self.indent()
                 typerepr = self.get_typerepr(annot)
                 self.write(" {|" + typerepr)
-                self.indent()
                 self.write_predicate_objects(annot)
                 self.write(" |}")
+                self.dedent()
                 self.dedent()
             else:
                 if not prev_named:
                     self.write(" ~")
                 self.write(f" {self.fmt.to_str(annot.subject)}")
                 prev_named = True
+
+            isnext = True
 
         if indented:
             self.dedent()
@@ -306,7 +328,7 @@ class TrigSerializer:
 
         for item in items:
             width += len(item)
-            if width > self.settings.max_list_width:
+            if width > self.settings.max_width:
                 multiline = True
                 break
 
@@ -342,17 +364,35 @@ class TrigSerializer:
             self.write(" )")
 
     def write(self, s: str) -> None:
+        if self._pending_predicate:
+            s = self._pending_predicate + " " + s
+
+        len_s = len(s)
+        if self._linewidth + len_s > self.settings.max_width:
+            print(file=self.out)
+            self.out.write(self._indent)
+            self._linewidth = 0
+        elif self._pending_predicate and not self._just_indented:
+            s = " " + s
+            len_s += 1
+
+        self._pending_predicate = None
+        self._just_indented = False
+        self._linewidth += len_s
         self.out.write(s)
 
     def write_indent(self) -> None:
-        self.write(self._indent)
+        self._just_indented = True
+        self.out.write(self._indent)
 
     def write_indented_line(self, s) -> None:
         self.write_indent()
         self.writeln(s)
 
     def writeln(self, s: str) -> None:
-        print(s, file=self.out)
+        self.write(s)
+        print(file=self.out)
+        self._linewidth = 0
 
 
 def pretty_print_trig(
