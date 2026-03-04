@@ -134,7 +134,7 @@ class Description:
     def is_embeddable(self) -> bool:
         if not isinstance(self.subject, BlankNode):
             return False
-        if self.reifies:
+        if self.reifies or self.only_annotation_name:
             return False
         return self._referenced_once and not self._has_blank_cycle()
 
