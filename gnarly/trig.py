@@ -48,6 +48,9 @@ class TurtleFormatter:
             lname = self.lname(parts[2])
             return f"{self.ns_to_prefix[parts[1]]}:{lname}"
 
+        if self.base_iri and iri.startswith(self.base_iri):
+            iri = iri[len(self.base_iri):]
+
         return f'<{iri}>'
 
     def clean(self, v: str) -> str:
@@ -101,6 +104,9 @@ class TrigSerializer:
     out: TextIO
     fmt: TurtleFormatter
     settings: TrigSettings
+    _pfx_decl: str
+    _base_decl: str
+
     _indent: str
     _level: int
     _pending_separator: str | None
@@ -120,6 +126,13 @@ class TrigSerializer:
         self._pending_predicate = None
         self._linewidth = 0
         self._just_indented = False
+
+        if self.settings.sparql_keywords:
+            self._pfx_decl = "PREFIX {}: <{}>"
+            self._base_decl = "BASE <{}>"
+        else:
+            self._pfx_decl = "@prefix {}: <{}> ."
+            self._base_decl = "@base <{}> ."
 
     def indent(self):
         self._level += 1
@@ -153,12 +166,11 @@ class TrigSerializer:
             self.write_description(desc)
 
     def write_prelude(self) -> None:
-        if self.settings.sparql_keywords:
-            pfx_decl = "PREFIX {}: <{}>"
-        else:
-            pfx_decl = "@prefix {}: <{}> ."
         for pfx, ns in self.fmt.prefixes.items():
-            self.writeln(pfx_decl.format(pfx, ns))
+            print(self._pfx_decl.format(pfx, ns), file=self.out)
+
+        if self.fmt.base_iri is not None:
+            print(self._base_decl.format(self.fmt.base_iri), file=self.out)
 
     def write_description(self, desc: Description):
         is_blank = isinstance(desc.subject, BlankNode)
@@ -399,7 +411,7 @@ def pretty_print_trig(
     store: Store, out: TextIO, prefixes: dict, base_iri: str | None = None
 ) -> None:
     doc = Document(store)
-    fmt = TurtleFormatter(prefixes, None)
+    fmt = TurtleFormatter(prefixes, base_iri)
     serializer = TrigSerializer(out, fmt)
     serializer.serialize(doc)
 
@@ -411,7 +423,9 @@ def main() -> None:
     reader = parse(sys.stdin.buffer, format=RdfFormat.TRIG)
     store.bulk_extend(reader)
 
-    pretty_print_trig(store, sys.stdout, prefixes=reader.prefixes, base_iri=None)
+    pretty_print_trig(
+        store, sys.stdout, prefixes=reader.prefixes, base_iri=reader.base_iri
+    )
 
 
 if __name__ == '__main__':
