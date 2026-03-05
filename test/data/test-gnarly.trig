@@ -1,0 +1,57 @@
+PREFIX : <http://example.net/ns/>
+BASE <https://example.org/>
+
+<1> a :Person ;
+  :topic_interest :Q12418 {| a :Influence ;
+        :date "1998-10-04"^^:date |}
+    {| a :Statement ;
+        :date "2004-01-12"^^:date |} .
+
+<a> a :Thing ;
+    :name "A" ;
+    :value "v", :V, <v>, [ a :V ] ;
+    :references <b> , <x> , _:y, : .
+
+_:y a :Thing ;
+    :value 1, 1.2, 2.34e0, true ;
+    :references [ :name "z" ] .
+
+<b> a :Thing .
+
+<c> a :Collection ;
+    :items (1 [ :name "Two" ] ) ;
+    :items (1 <b> [ :name "Three" ] <d> <e> ) .
+
+<d> a :Thing ;
+    :name "Third" {| :source <one> |} ~ <namednote> ~ <f> ~ _:g ~ _:empty  ,
+        "Fourth" {| :source <other> |} ~ <namednote>  .
+
+<e> a :Thing ;
+    :references [ a :Some ; :name "some" ] .
+
+<< <a> :name "B" >> a :Claim .
+
+<< <a> :name "B "~ <claim> >> a :Claim .
+
+<< <a> :name "C" ~ <f> >> a :Claim .
+<< <a> :name "D" ~ <f> >> .
+
+<< <a> :name "G" ~ _:g >> .
+
+<u> a [ :label "Unknown" ] .
+
+_:blank a :Thing .
+
+[] a :Thing .
+
+_:z a :Thing ; :self _:z .
+
+_:z0 a :Thing ; :rel [ :rel _:z0 ] .
+
+() a :Oddity .
+(0 9) a :Oddity .
+(<a> <b> <c> <d> (<a> <b> <c> <d>)) a :Oddity .
+
+graph <g1> {
+    <a> a :Thing .
+}
