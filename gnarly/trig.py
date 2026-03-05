@@ -147,8 +147,10 @@ class TrigSerializer:
 
     def serialize(self, doc: Document) -> None:
         self.write_prelude()
-        graphkey = "GRAPH " if self.settings.sparql_keywords else ""
+        self.write_dataset(doc)
 
+    def write_dataset(self, doc: Document) -> None:
+        graphkey = "GRAPH " if self.settings.sparql_keywords else ""
         self.serialize_graph(doc)
         for name, doc in doc.get_named_descriptions():
             self.writeln("")
