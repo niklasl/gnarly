@@ -27,7 +27,7 @@ type List = list[Description | Literal | Triple]
 type SortKey = tuple[bool, str, int, bool, str]
 
 
-class Document:
+class Frame:
     store: Store
     name: Node | DefaultGraph
 
@@ -38,9 +38,9 @@ class Document:
         self.name = name or DefaultGraph()
         self._cache = {}
 
-    def get_named_descriptions(self) -> Iterator[tuple[Node, Document]]:
+    def get_named_descriptions(self) -> Iterator[tuple[Node, Frame]]:
         for name in self.store.named_graphs():
-            yield name, Document(self.store, name)
+            yield name, Frame(self.store, name)
 
     def get_descriptions(self) -> Iterator[Description]:
         results = self.store.query(
@@ -95,7 +95,7 @@ class Document:
 
 
 class Description:
-    doc: Document
+    frame: Frame
     subject: Node
 
     unreferenced: bool
@@ -115,8 +115,8 @@ class Description:
     _reif_s: Node | None
     _key: SortKey
 
-    def __init__(self, doc: Document, s: Node):
-        self.doc = doc
+    def __init__(self, frame: Frame, s: Node):
+        self.frame = frame
         self.subject = s
         self._check_references()
         self._check_annotates()
@@ -126,8 +126,8 @@ class Description:
     def _check_references(self) -> None:
         self._blank_cycle = None
         i = 0
-        for quad in self.doc.store.quads_for_pattern(
-            None, None, self.subject, self.doc.name
+        for quad in self.frame.store.quads_for_pattern(
+            None, None, self.subject, self.frame.name
         ):
             if i > 1:
                 break
@@ -136,8 +136,8 @@ class Description:
         self._referenced_once = i == 1
 
         self._astype = False
-        for quad in self.doc.store.quads_for_pattern(
-            None, RDF_TYPE_NODE, self.subject, self.doc.name
+        for quad in self.frame.store.quads_for_pattern(
+            None, RDF_TYPE_NODE, self.subject, self.frame.name
         ):
             self._astype = True
             break
@@ -151,7 +151,7 @@ class Description:
 
     def _has_blank_cycle(self) -> bool:
         if self._blank_cycle is None:
-            self._blank_cycle = self._referenced_once and self.doc._check_blank_cycle(
+            self._blank_cycle = self._referenced_once and self.frame._check_blank_cycle(
                 self.subject
             )
         return self._blank_cycle
@@ -169,7 +169,7 @@ class Description:
             if isinstance(triple, Triple):
                 if not multiple:
                     self._reif_s = cast(Node, triple.subject)
-                if self.doc._is_asserted(triple):
+                if self.frame._is_asserted(triple):
                     self.annotates = True
                     continue
                 else:
@@ -179,8 +179,8 @@ class Description:
         self.only_annotates = self.annotates and all_annots
         self.only_annotation_name = self.only_annotates and not any(
             quad
-            for quad in self.doc.store.quads_for_pattern(
-                self.subject, None, None, self.doc.name
+            for quad in self.frame.store.quads_for_pattern(
+                self.subject, None, None, self.frame.name
             )
             if quad.predicate != RDF_REIFIES_NODE
         )
@@ -211,31 +211,31 @@ class Description:
         return rest
 
     def get_objects(self, p: NamedNode) -> Iterator[Description | Literal | Triple]:
-        for quad in self.doc.store.quads_for_pattern(
-            self.subject, p, None, self.doc.name
+        for quad in self.frame.store.quads_for_pattern(
+            self.subject, p, None, self.frame.name
         ):
             if isinstance(quad.object, Node):
-                yield self.doc.get_description(cast(Node, quad.object))
+                yield self.frame.get_description(cast(Node, quad.object))
             else:
                 yield quad.object
 
     def get_rdftypes(self) -> Iterator[Description]:
-        for quad in self.doc.store.quads_for_pattern(
-            self.subject, RDF_TYPE_NODE, None, self.doc.name
+        for quad in self.frame.store.quads_for_pattern(
+            self.subject, RDF_TYPE_NODE, None, self.frame.name
         ):
-            yield self.doc.get_description(cast(Node, quad.object))
+            yield self.frame.get_description(cast(Node, quad.object))
 
     def get_reifies(self) -> Iterator[Triple]:
-        for quad in self.doc.store.quads_for_pattern(
-            self.subject, RDF_REIFIES_NODE, None, self.doc.name
+        for quad in self.frame.store.quads_for_pattern(
+            self.subject, RDF_REIFIES_NODE, None, self.frame.name
         ):
             if isinstance(quad.object, Triple):
-                if not self.doc._is_asserted(quad.object):
+                if not self.frame._is_asserted(quad.object):
                     yield quad.object
 
     def get_regular_predicate_objects(self) -> Iterator[tuple[NamedNode, Reference]]:
-        for quad in self.doc.store.quads_for_pattern(
-            self.subject, None, None, self.doc.name
+        for quad in self.frame.store.quads_for_pattern(
+            self.subject, None, None, self.frame.name
         ):
             if self.list_items is not None:
                 if quad.predicate in LIST_PREDICATES:
@@ -243,7 +243,7 @@ class Description:
 
             if quad.predicate not in SUGAR_PREDICATES:
                 o = (
-                    self.doc.get_description(quad.object)
+                    self.frame.get_description(quad.object)
                     if isinstance(quad.object, Node)
                     else quad.object
                 )
@@ -272,10 +272,10 @@ class Reference:
         self._key = o._key if isinstance(o, Description) else make_sort_key(o)
 
     def get_annotations(self) -> Iterator[Description]:
-        for quad in self.s.doc.store.quads_for_pattern(
-            None, RDF_REIFIES_NODE, self._triple, self.s.doc.name
+        for quad in self.s.frame.store.quads_for_pattern(
+            None, RDF_REIFIES_NODE, self._triple, self.s.frame.name
         ):
-            yield self.s.doc.get_description(cast(Node, quad.subject))
+            yield self.s.frame.get_description(cast(Node, quad.subject))
 
     def __lt__(self, other: Reference) -> bool:
         return self._key < other._key

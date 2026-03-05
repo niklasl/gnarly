@@ -4,7 +4,7 @@ from typing import Iterator, NamedTuple, TextIO
 from pyoxigraph import (BlankNode, DefaultGraph, Literal, NamedNode, Quad,
                         RdfFormat, Store, Triple, parse)
 
-from . import (RDF_NIL_NODE, RDF_TYPE_NODE, RDFNS, Description, Document, List,
+from . import (RDF_NIL_NODE, RDF_TYPE_NODE, RDFNS, Description, Frame, List,
                Node, Reference, Term)
 
 RDF_DIRLANGSTRING_NODE = NamedNode(f"{RDFNS}dirLangString")
@@ -156,24 +156,24 @@ class TrigSerializer:
     def _update_indent(self):
         self._indent = self.settings.indent * self._level
 
-    def serialize(self, doc: Document) -> None:
+    def serialize(self, frame: Frame) -> None:
         self.write_prelude()
-        self.write_dataset(doc)
+        self.write_dataset(frame)
 
-    def write_dataset(self, doc: Document) -> None:
+    def write_dataset(self, frame: Frame) -> None:
         graphkey = "GRAPH " if self.settings.sparql_keywords else ""
-        self.serialize_graph(doc)
-        for name, doc in doc.get_named_descriptions():
+        self.serialize_graph(frame)
+        for name, frame in frame.get_named_descriptions():
             self.writeln("")
             self.writeln(graphkey + self.fmt.to_str(name) + " {")
             self.indent()
-            self.serialize_graph(doc)
+            self.serialize_graph(frame)
             self.dedent()
             self.writeln("")
             self.writeln("}")
 
-    def serialize_graph(self, doc: Document) -> None:
-        descriptions = doc.get_descriptions()
+    def serialize_graph(self, frame: Frame) -> None:
+        descriptions = frame.get_descriptions()
         for desc in sorted(descriptions):
             self.writeln("")
             self.write_description(desc)
@@ -430,10 +430,10 @@ class TrigSerializer:
 def pretty_print_trig(
     store: Store, out: TextIO, prefixes: dict, base_iri: str | None = None
 ) -> None:
-    doc = Document(store)
+    frame = Frame(store)
     fmt = TurtleFormatter(prefixes, base_iri)
     serializer = TrigSerializer(out, fmt)
-    serializer.serialize(doc)
+    serializer.serialize(frame)
 
 
 def main() -> None:

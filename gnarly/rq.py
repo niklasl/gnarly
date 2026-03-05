@@ -3,21 +3,21 @@ from typing import TextIO
 
 from pyoxigraph import RdfFormat, Store, parse
 
-from . import Document
+from . import Frame
 from .trig import TrigSerializer, TrigSettings, TurtleFormatter
 
 
 def rdf_to_sparql_ask(
     store: Store, out: TextIO, prefixes: dict, base_iri: str | None = None
 ) -> None:
-    doc = Document(store)
+    frame = Frame(store)
     fmt = TurtleFormatter(prefixes, base_iri)
     serializer = TrigSerializer(out, fmt, TrigSettings(sparql_keywords=True))
     serializer.write_prelude()
     serializer.indent()
     print(file=out)
     print("ASK WHERE {", file=out)
-    serializer.write_dataset(doc)
+    serializer.write_dataset(frame)
     serializer.dedent()
     print("}", file=out)
 
