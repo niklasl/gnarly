@@ -20,6 +20,8 @@ LEAF_RE = re.compile(r'(.*?)([^#/:]+)$')
 
 PNAME_LOCAL_ESC = re.compile(r"([~!$&'()*+,;=/?#@]|^[.-]|[.-]$|%(?![0-9A-Fa-f]{2}))")
 
+LINEBREAK = re.compile('[\n\r]')
+
 
 class TrigSettings(NamedTuple):
     indent: str = '  '
@@ -53,18 +55,27 @@ class TurtleFormatter:
 
         return f'<{iri}>'
 
+    def lname(self, v: str) -> str:
+        return PNAME_LOCAL_ESC.sub(r'\\\1', v)
+
+    def stringrepr(self, v: str) -> str:
+        if LINEBREAK.search(v) is not None:
+            return self.to_multiline_str(v)
+        else:
+            return f'"{self.clean(v)}"'
+
     def clean(self, v: str) -> str:
         v = v.replace('\\', '\\\\')
         v = v.replace('\r', '\\r')
-        v = v.replace('\n', '\\n')  # TODO: pretty multiline
+        v = v.replace('\n', '\\n')
         v = v.replace('"', r'\"')
         return v
 
-    def stringrepr(self, v: str) -> str:
-        return f'"{self.clean(v)}"'
-
-    def lname(self, v: str) -> str:
-        return PNAME_LOCAL_ESC.sub(r'\\\1', v)
+    def to_multiline_str(self, v: str) -> str:
+        v = v.replace('"""', '\\"\\"\\"')
+        if v.endswith('"') and not v.endswith('\\"'):
+            v = f'{v[0 : len(v) - 1]}\\"'
+        return f'"""{v}"""'
 
     def to_str(self, n: Description | Term) -> str:
         if n == RDF_NIL_NODE:
@@ -88,7 +99,7 @@ class TurtleFormatter:
                 elif n.datatype == XSD_INTEGER_NODE:
                     return v
                 elif n.datatype == XSD_DECIMAL_NODE:
-                    return v
+                    return f"{v}.0" if "." not in v else v
                 elif n.datatype == XSD_DOUBLE_NODE:
                     return v + 'e0'
                 else:
