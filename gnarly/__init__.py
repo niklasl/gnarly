@@ -31,9 +31,12 @@ class Document:
     store: Store
     name: Node | DefaultGraph
 
+    _cache: dict[Node, Description]
+
     def __init__(self, store: Store, name: Node | None = None):
         self.store = store
         self.name = name or DefaultGraph()
+        self._cache = {}
 
     def get_named_descriptions(self) -> Iterator[tuple[Node, Document]]:
         for name in self.store.named_graphs():
@@ -57,7 +60,15 @@ class Document:
                 yield d
 
     def get_description(self, n: Node) -> Description:
-        return Description(self, n)
+        if n in self._cache:
+            return self._cache[n]
+
+        d = Description(self, n)
+        # cache lists to avoid re-generating them
+        if d.list_items is not None and len(d.list_items) > 8:
+            self._cache[n] = d
+
+        return d
 
     def _is_asserted(self, term: Term) -> bool:
         if not isinstance(term, Triple):
@@ -175,24 +186,28 @@ class Description:
         self.only_annotates_one = self.only_annotates and not multiple
 
     def _collect_list_items(self) -> List | None:
-        items = []
-        for first in self.get_objects(RDF_FIRST_NODE):
-            items.append(first)
-            for rest in self.get_objects(RDF_REST_NODE):
-                if isinstance(rest, Description) and rest.subject == RDF_NIL_NODE:
-                    return items
-                if not isinstance(rest, Description):
-                    return None
-                rlist = rest.list_items
-                if rlist is None:
-                    return None
-                items += rlist
-                return items
-            else:
+        first = None
+        for o in self.get_objects(RDF_FIRST_NODE):
+            if first is not None:
                 return None
-            break
-        else:
+            first = o
+        if first is None:
             return None
+
+        rest: List | None = None
+        for ro in self.get_objects(RDF_REST_NODE):
+            if rest is not None:
+                return None
+
+            if not isinstance(ro, Description):
+                return None
+
+            if ro.subject == RDF_NIL_NODE:
+                rest = [first]
+            elif isinstance(ro.subject, BlankNode) and ro.list_items is not None:
+                rest = [first] + ro.list_items
+
+        return rest
 
     def get_objects(self, p: NamedNode) -> Iterator[Description | Literal | Triple]:
         for quad in self.doc.store.quads_for_pattern(
