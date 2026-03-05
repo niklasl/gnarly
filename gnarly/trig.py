@@ -174,12 +174,9 @@ class TrigSerializer:
 
     def write_description(self, desc: Description):
         is_blank = isinstance(desc.subject, BlankNode)
-
         pure_blank = is_blank and desc.unreferenced and not desc.annotates
+
         s_str = "[]" if pure_blank else self.fmt.to_str(desc.subject)
-        if desc.list_items is not None:
-            self.write_list(desc.list_items, keeplevel=True)
-            s_str = ""
 
         reifies = list(desc.get_reifies())
         if len(reifies) > 0:
@@ -197,6 +194,12 @@ class TrigSerializer:
                 s_str = f'<<{trpl_s}{rs}>>'
 
         self.write_indent()
+
+        if desc.list_items is not None:
+            self.write_list(desc.list_items, keeplevel=True)
+            s_str = ""
+
+
         typerepr = self.get_typerepr(desc)
         self.write(s_str + typerepr)
         self.indent()
@@ -217,6 +220,7 @@ class TrigSerializer:
             self.write_indented_line(".")
         else:
             self.writeln(" .")
+
         self.dedent()
 
     def get_typerepr(self, desc) -> str:
@@ -276,6 +280,7 @@ class TrigSerializer:
         indented = False
         isnext = False
         for annot in sorted(ref.get_annotations()):
+            space = "" if isnext or prev_named else " "
             if prev_named:
                 self.writeln("")
                 if not indented:
@@ -283,7 +288,7 @@ class TrigSerializer:
                     self.indent()
                     indented = True
                 self.write_indent()
-                self.write(" ~")
+                self.write(space + "~ ")
 
             if (
                 annot.unreferenced
@@ -292,20 +297,22 @@ class TrigSerializer:
                 and any(annot.get_regular_predicate_objects())
             ):
                 self.indent()
+                self.indent()
                 if isnext and not prev_named:
                     self.writeln("")
                     self.write_indent()
-                self.indent()
                 typerepr = self.get_typerepr(annot)
-                self.write(" {|" + typerepr)
+                self.write(space + "{|" + typerepr)
+                self.indent()
                 self.write_predicate_objects(annot)
+                self.dedent()
                 self.write(" |}")
                 self.dedent()
                 self.dedent()
             else:
                 if not prev_named:
-                    self.write(" ~")
-                self.write(f" {self.fmt.to_str(annot.subject)}")
+                    self.write(space + "~ ")
+                self.write(self.fmt.to_str(annot.subject))
                 prev_named = True
 
             isnext = True
