@@ -167,11 +167,12 @@ class Description:
             if self.annotates:
                 multiple = True
             if isinstance(triple, Triple):
+                if not multiple:
+                    self._reif_s = cast(Node, triple.subject)
                 if self.doc._is_asserted(triple):
                     self.annotates = True
                     continue
                 else:
-                    self._reif_s = cast(Node, triple.subject)
                     self.reifies = True
             all_annots = False
 
@@ -281,10 +282,10 @@ class Reference:
 
 
 def make_sort_key(term: Term, reifies_s: Node | None = None) -> SortKey:
-    isblank = isinstance(term, BlankNode)
-    s1 = (isblank, repr(term))
+    isblank = isinstance(term, BlankNode) or term == RDF_NIL_NODE
+    s1 = (isblank, str(term))
     s2 = (
-        ((isinstance(reifies_s, BlankNode), repr(reifies_s)), 1)
+        ((isinstance(reifies_s, BlankNode), str(reifies_s)), 1)
         if reifies_s
         else (s1, 0)
     )
