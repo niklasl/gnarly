@@ -24,7 +24,7 @@ Term = Node | Literal | Triple
 
 type List = list[Description | Literal | Triple]
 
-type SortKey = tuple[tuple[tuple[bool, str], int], tuple[bool, str]]
+type SortKey = tuple[bool, str, int, bool, str]
 
 
 class Document:
@@ -283,10 +283,10 @@ class Reference:
 
 def make_sort_key(term: Term, reifies_s: Node | None = None) -> SortKey:
     isblank = isinstance(term, BlankNode) or term == RDF_NIL_NODE
-    s1 = (isblank, str(term))
+    s1 = (isblank, str(term) if isinstance(term, Triple) else term.value)
     s2 = (
-        ((isinstance(reifies_s, BlankNode), str(reifies_s)), 1)
+        (isinstance(reifies_s, BlankNode), reifies_s.value) + (1,)
         if reifies_s
-        else (s1, 0)
+        else s1 + (0,)
     )
-    return (s2, s1)
+    return s2 + s1
