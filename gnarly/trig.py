@@ -164,18 +164,18 @@ class TrigSerializer:
         graphkey = "GRAPH " if self.settings.sparql_keywords else ""
         self.serialize_graph(frame)
         for name, frame in frame.get_named_descriptions():
-            self.writeln("")
-            self.writeln(graphkey + self.fmt.to_str(name) + " {")
+            print(file=self.out)
+            print(graphkey + self.fmt.to_str(name) + " {", file=self.out)
             self.indent()
             self.serialize_graph(frame)
             self.dedent()
-            self.writeln("")
-            self.writeln("}")
+            print(file=self.out)
+            print("}", file=self.out)
 
     def serialize_graph(self, frame: Frame) -> None:
         descriptions = frame.get_descriptions()
         for desc in sorted(descriptions):
-            self.writeln("")
+            print(file=self.out)
             self.write_description(desc)
 
     def write_prelude(self) -> None:
@@ -211,7 +211,6 @@ class TrigSerializer:
         if desc.list_items is not None:
             self.write_list(desc.list_items, keeplevel=True)
             s_str = ""
-
 
         typerepr = self.get_typerepr(desc)
         self.write(s_str + typerepr)
@@ -256,7 +255,8 @@ class TrigSerializer:
                 self._pending_separator = " ,"
 
             if self._pending_separator is not None:
-                self.writeln(self._pending_separator)
+                print(self._pending_separator, file=self.out)
+                self._linewidth = 0
                 self._pending_separator = None
                 self.write_indent()
 
@@ -301,7 +301,7 @@ class TrigSerializer:
                     self.indent()
                     indented = True
                 self.write_indent()
-                self.write(space + "~ ")
+                self.out.write(space + "~ ")
 
             if (
                 annot.unreferenced
@@ -319,13 +319,13 @@ class TrigSerializer:
                 self.indent()
                 self.write_statements(annot)
                 self.dedent()
-                self.write(" |}")
+                self.out.write(" |}")
                 self.dedent()
                 self.dedent()
             else:
                 if not prev_named:
-                    self.write(space + "~ ")
-                self.write(self.fmt.to_str(annot.subject))
+                    self.out.write(space + "~ ")
+                self.out.write(self.fmt.to_str(annot.subject))
                 prev_named = True
 
             isnext = True
@@ -346,9 +346,9 @@ class TrigSerializer:
             self.dedent()
             if self.settings.long:
                 self.write_indent()
-                self.write("]")
+                self.out.write("]")
             else:
-                self.write(" ]")
+                self.out.write(" ]")
             self.dedent()
             return True
         return False
@@ -382,25 +382,28 @@ class TrigSerializer:
                     self.writeln(items[i])
             self.dedent()
             self.write_indent()
-            self.write(")")
+            self.out.write(")")
             if not keeplevel:
                 self.dedent()
         else:
             self.write("(")
             for i, ref in enumerate(list_items):
-                self.write(" ")
+                self.out.write(" ")
                 if isinstance(ref, Description) and ref.list_items is not None:
                     self.write_list(ref.list_items)
                 elif not self.attempt_write_blank(ref):
-                    self.write(items[i])
-            self.write(" )")
+                    self.out.write(items[i])
+            self.out.write(" )")
 
     def write(self, s: str) -> None:
         if self._pending_predicate:
             s = self._pending_predicate + " " + s
 
         len_s = len(s)
-        if self._linewidth + len_s > self.settings.max_width:
+        if (
+            self._linewidth + len_s > self.settings.max_width
+            and not self._just_indented
+        ):
             print(file=self.out)
             self.out.write(self._indent)
             self._linewidth = 0
