@@ -5,7 +5,7 @@ from pyoxigraph import (BlankNode, DefaultGraph, Literal, NamedNode, Quad,
                         RdfFormat, Store, Triple, parse)
 
 from . import (RDF_NIL_NODE, RDF_TYPE_NODE, RDFNS, Description, Frame, List,
-               Node, Reference, Term)
+               Node, Statement, Term)
 
 RDF_DIRLANGSTRING_NODE = NamedNode(f"{RDFNS}dirLangString")
 RDF_LANGSTRING_NODE = NamedNode(f"{RDFNS}langString")
@@ -219,7 +219,7 @@ class TrigSerializer:
 
         if typerepr == "":
             more_predicates = False
-            for i, (p, _) in enumerate(desc.get_regular_predicate_objects()):
+            for i, (p, _) in enumerate(desc.get_regular_statements()):
                 if i > 0:
                     more_predicates = True
                     break
@@ -227,7 +227,7 @@ class TrigSerializer:
             if more_predicates:
                 self._pending_separator = ""
 
-        self.write_predicate_objects(desc)
+        self.write_statements(desc)
 
         if self.settings.long:
             self.write_indented_line(".")
@@ -244,12 +244,12 @@ class TrigSerializer:
         else:
             return ""
 
-    def write_predicate_objects(self, desc: Description) -> None:
-        predicate_objects = sorted(desc.get_regular_predicate_objects())
+    def write_statements(self, desc: Description) -> None:
+        statements = sorted(desc.get_regular_statements())
 
         prev_p: NamedNode | None = None
 
-        for p, ref in predicate_objects:
+        for p, stmt in statements:
             same_p = p == prev_p
 
             if same_p:
@@ -267,24 +267,24 @@ class TrigSerializer:
 
             prev_p = p
 
-            self.write_object(ref)
+            self.write_object(stmt)
 
             self._pending_separator = " ;"
 
         self._pending_separator = None
 
-    def write_object(self, ref: Reference) -> None:
-        if isinstance(ref.o, Description) and ref.o.list_items is not None:
-            self.write_list(ref.o.list_items)
+    def write_object(self, stmt: Statement) -> None:
+        if isinstance(stmt.o, Description) and stmt.o.list_items is not None:
+            self.write_list(stmt.o.list_items)
             return
 
         o: Description | Term | None
-        if isinstance(ref.o, Description):
-            o = ref.o.subject
-            if self.attempt_write_blank(ref.o):
+        if isinstance(stmt.o, Description):
+            o = stmt.o.subject
+            if self.attempt_write_blank(stmt.o):
                 o = None
         else:
-            o = ref.o
+            o = stmt.o
 
         if o is not None:
             self.write(self.fmt.to_str(o))
@@ -292,7 +292,7 @@ class TrigSerializer:
         prev_named = False
         indented = False
         isnext = False
-        for annot in sorted(ref.get_annotations()):
+        for annot in sorted(stmt.get_annotations()):
             space = "" if isnext or prev_named else " "
             if prev_named:
                 self.writeln("")
@@ -307,7 +307,7 @@ class TrigSerializer:
                 annot.unreferenced
                 and annot.only_annotates_one
                 and isinstance(annot.subject, BlankNode)
-                and any(annot.get_regular_predicate_objects())
+                and any(annot.get_regular_statements())
             ):
                 self.indent()
                 self.indent()
@@ -317,7 +317,7 @@ class TrigSerializer:
                 typerepr = self.get_typerepr(annot)
                 self.write(space + "{|" + typerepr)
                 self.indent()
-                self.write_predicate_objects(annot)
+                self.write_statements(annot)
                 self.dedent()
                 self.write(" |}")
                 self.dedent()
@@ -342,7 +342,7 @@ class TrigSerializer:
             self.write("[" + typerepr)
             self.indent()
             self.indent()
-            self.write_predicate_objects(desc)
+            self.write_statements(desc)
             self.dedent()
             if self.settings.long:
                 self.write_indent()

@@ -233,7 +233,7 @@ class Description:
                 if not self.frame._is_asserted(quad.object):
                     yield quad.object
 
-    def get_regular_predicate_objects(self) -> Iterator[tuple[NamedNode, Reference]]:
+    def get_regular_statements(self) -> Iterator[tuple[NamedNode, Statement]]:
         for quad in self.frame.store.quads_for_pattern(
             self.subject, None, None, self.frame.name
         ):
@@ -241,20 +241,21 @@ class Description:
                 if quad.predicate in LIST_PREDICATES:
                     continue
 
+            # FIXME: check if o is of expected type!
             if quad.predicate not in SUGAR_PREDICATES:
                 o = (
                     self.frame.get_description(quad.object)
                     if isinstance(quad.object, Node)
                     else quad.object
                 )
-                reference = Reference(self, quad.predicate, o)
-                yield quad.predicate, reference
+                stmt = Statement(self, quad.predicate, o)
+                yield quad.predicate, stmt
 
     def __lt__(self, other: Description) -> bool:
         return self._key < other._key
 
 
-class Reference:
+class Statement:
     s: Description
     p: NamedNode
     o: Description | Literal | Triple
@@ -277,7 +278,7 @@ class Reference:
         ):
             yield self.s.frame.get_description(cast(Node, quad.subject))
 
-    def __lt__(self, other: Reference) -> bool:
+    def __lt__(self, other: Statement) -> bool:
         return self._key < other._key
 
 
