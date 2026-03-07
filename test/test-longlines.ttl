@@ -1,0 +1,19 @@
+PREFIX : <https://example.org/vocab/>
+PREFIX content: <https://example.org/term/content/>
+PREFIX form: <https://example.org/term/form/>
+PREFIX genre: <https://example.org/term/genre/>
+
+<https://library.example.org/fxql7jqr38b1dkf> a :AdministrativeMetadataDocument ,
+    :BibliographicRecord ,
+    :Metadata ;
+  :generationProcess <https://library.example.org/sys/globalchanges/2026-03-05/typenormalization/main> ;
+  :mainEntity <https://library.example.org/fxql7jqr38b1dkf#it> ;
+  :note "Notes" .
+
+<https://library.example.org/fxql7jqr38b1dkf#it> a :BibliograhicResource , :Monograph ;
+  :category content:Text ,
+    form:Literature ,
+    genre:Fiction .
+
+<https://library.example.org/x00000000000000> a :AdministrativeBibliographicRecordMetadataDocument ;
+  :mainEntity <https://library.example.org/x00000000000000#it> .

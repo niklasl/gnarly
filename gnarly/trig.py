@@ -51,7 +51,7 @@ class TurtleFormatter:
             return f"{self.ns_to_prefix[parts[1]]}:{lname}"
 
         if self.base_iri and iri.startswith(self.base_iri):
-            iri = iri[len(self.base_iri):]
+            iri = iri[len(self.base_iri) :]
 
         return f'<{iri}>'
 
@@ -212,8 +212,9 @@ class TrigSerializer:
             self.write_list(desc.list_items, keeplevel=True)
             s_str = ""
 
+        self.write(s_str)
         typerepr = self.get_typerepr(desc)
-        self.write(s_str + typerepr)
+        self.out.write(typerepr)
         self.indent()
 
         if typerepr == "":
@@ -236,7 +237,14 @@ class TrigSerializer:
         self.dedent()
 
     def get_typerepr(self, desc) -> str:
-        types = ", ".join(self.fmt.to_str(t) for t in desc.get_rdftypes())
+        typereprs = sorted(self.fmt.to_str(t) for t in desc.get_rdftypes())
+        joiner = (
+            f" ,\n{self.settings.indent * (self._level + 2)}"
+            if (self._linewidth + sum(len(t) for t in typereprs))
+            > self.settings.max_width
+            else " , "
+        )
+        types = joiner.join(typereprs)
         if types:
             self._pending_separator = " ;"
             return f" a {types}"
@@ -314,8 +322,9 @@ class TrigSerializer:
                 if isnext and not prev_named:
                     self.writeln("")
                     self.write_indent()
+                self.write(space + "{|")
                 typerepr = self.get_typerepr(annot)
-                self.write(space + "{|" + typerepr)
+                self.out.write(typerepr)
                 self.indent()
                 self.write_statements(annot)
                 self.dedent()

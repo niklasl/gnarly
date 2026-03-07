@@ -4,8 +4,10 @@ Gnarly is a pretty-printer for [RDF 1.2](https://www.w3.org/TR/rdf12-concepts/),
 
 Compact features:
 
-- Uses given prefixes to prefer PNames over IRIs;
-- outputs subjects with types first, then
+- Uses given prefixes to compact IRIs into PNames,
+- optional base IRI to shorten IRIs;
+- group descriptions by subject,
+- writes types first, on subject line if short enough, then
 - predicates separated by semicolon, and
 - multiple objects, separated by comma; with support for
 - nested blank nodes,
@@ -25,7 +27,7 @@ Command-line use:
 
 Simple round-trip test:
 
-    $ ./test.sh clone/of/w3c/rdf-tests  # https://github.com/w3c/rdf-tests
+    $ ./test.sh clone/of/w3c/rdf-tests  # from <https://github.com/w3c/rdf-tests>
 
 ### Example Output
 
