@@ -213,11 +213,10 @@ class TrigSerializer:
             s_str = ""
 
         self.write(s_str)
-        typerepr = self.get_typerepr(desc)
-        self.out.write(typerepr)
+        typed = self.write_types(desc)
         self.indent()
 
-        if typerepr == "":
+        if not typed:
             more_predicates = False
             for i, (p, _) in enumerate(desc.get_regular_statements()):
                 if i > 0:
@@ -236,18 +235,28 @@ class TrigSerializer:
 
         self.dedent()
 
+    def write_types(self, desc: Description) -> bool:
+        typerepr = self.get_typerepr(desc)
+        self.out.write(typerepr)
+        return typerepr != ""
+
     def get_typerepr(self, desc) -> str:
-        typereprs = sorted(self.fmt.to_str(t) for t in desc.get_rdftypes())
+        typereprs = sorted(self.fmt.to_str(t) for t in desc.get_simple_types())
+        overflowed = (
+            self._linewidth + sum(len(t) for t in typereprs) > self.settings.max_width
+        )
         joiner = (
-            f" ,\n{self.settings.indent * (self._level + 2)}"
-            if (self._linewidth + sum(len(t) for t in typereprs))
-            > self.settings.max_width
-            else " , "
+            f" ,\n{self.settings.indent * (self._level + 2)}" if overflowed else " , "
         )
         types = joiner.join(typereprs)
         if types:
+            lead = (
+                f"\n{self._indent}{self.settings.indent}"
+                if len(typereprs) > 1 and overflowed
+                else " "
+            )
             self._pending_separator = " ;"
-            return f" a {types}"
+            return f"{lead}a {types}"
         else:
             return ""
 
@@ -271,7 +280,9 @@ class TrigSerializer:
             if same_p:
                 self.write(self.settings.indent)
             else:
-                self._pending_predicate = self.fmt.to_str(p)
+                self._pending_predicate = (
+                    "a" if p == RDF_TYPE_NODE else self.fmt.to_str(p)
+                )
 
             prev_p = p
 
@@ -323,8 +334,7 @@ class TrigSerializer:
                     self.writeln("")
                     self.write_indent()
                 self.write(space + "{|")
-                typerepr = self.get_typerepr(annot)
-                self.out.write(typerepr)
+                typed = self.write_types(annot)
                 self.indent()
                 self.write_statements(annot)
                 self.dedent()
@@ -347,8 +357,8 @@ class TrigSerializer:
         if not isinstance(desc, Description):
             return False
         if desc.is_embeddable():
-            typerepr = self.get_typerepr(desc)
-            self.write("[" + typerepr)
+            self.write("[")
+            typed = self.write_types(desc)
             self.indent()
             self.indent()
             self.write_statements(desc)

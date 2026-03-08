@@ -1,3 +1,4 @@
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 PREFIX : <http://example.net/ns/>
 BASE <https://example.org/>
 
@@ -52,6 +53,18 @@ _:z0 a :Thing ; :rel [ :rel _:z0 ] .
 (0 9) a :Oddity .
 (<a> <b> <c> <d> (<a> <b> <c> <d>)) a :Oddity .
 
+<xyz>
+  a 123 {| :note "ill-typed" |} ,
+    :Monograph {| :note "annnoted-type" |} ,
+    <<( <xyz> rdf:reifies rdf:type )>> ;
+  rdf:reifies rdf:type .
+
 graph <g1> {
-    <a> a :Thing .
+
+  <1> a :Person ;
+    :topic_interest :Q12418 .
+
+  <a> a :Thing ;
+    :name "A" ~ <a> .
+
 }

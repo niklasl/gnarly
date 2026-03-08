@@ -17,7 +17,6 @@ RDF_REST_NODE = NamedNode(RDF_REST)
 RDF_NIL_NODE = NamedNode(RDF_NIL)
 
 LIST_PREDICATES = {RDF_FIRST_NODE, RDF_REST_NODE}
-SUGAR_PREDICATES = {RDF_TYPE_NODE, RDF_REIFIES_NODE}
 
 Node = NamedNode | BlankNode
 Term = Node | Literal | Triple
@@ -51,12 +50,16 @@ class Frame:
             d = self.get_description(s)
             isblank = isinstance(d.subject, BlankNode)
             if (
-                (not isblank or d.unreferenced or d._astype)
-                and (
-                    (not isblank and not d.only_annotation_name)
-                    or (isblank and not d.only_annotates_one)
+                (
+                    (not isblank or d.unreferenced)
+                    and (
+                        (not isblank and not d.only_annotation_name)
+                        or (isblank and not d.only_annotates_one)
+                    )
                 )
-            ) or d.reifies or d._has_blank_cycle():
+                or d.reifies
+                or d._has_blank_cycle()
+            ):
                 yield d
 
     def get_description(self, n: Node) -> Description:
@@ -75,6 +78,9 @@ class Frame:
             return False
         ts, tp, to = term
         return any(self.store.quads_for_pattern(ts, tp, to, self.name))
+
+    def _is_annotated(self, triple: Triple) -> bool:
+        return any(self.store.quads_for_pattern(None, RDF_REIFIES_NODE, triple))
 
     def _check_blank_cycle(self, s: Node) -> bool:
         if not isinstance(s, BlankNode):
@@ -102,7 +108,6 @@ class Description:
 
     _referenced_once: bool
     _blank_cycle: bool | None
-    _astype: bool
 
     list_items: List | None
 
@@ -134,13 +139,6 @@ class Description:
             i += 1
         self.unreferenced = i == 0
         self._referenced_once = i == 1
-
-        self._astype = False
-        for quad in self.frame.store.quads_for_pattern(
-            None, RDF_TYPE_NODE, self.subject, self.frame.name
-        ):
-            self._astype = True
-            break
 
     def is_embeddable(self) -> bool:
         if not isinstance(self.subject, BlankNode):
@@ -210,46 +208,56 @@ class Description:
 
         return rest
 
-    def get_objects(self, p: NamedNode) -> Iterator[Description | Literal | Triple]:
+    def _triples(self, p: NamedNode | None = None) -> Iterator[Triple]:
         for quad in self.frame.store.quads_for_pattern(
             self.subject, p, None, self.frame.name
         ):
-            if isinstance(quad.object, Node):
-                yield self.frame.get_description(cast(Node, quad.object))
-            else:
-                yield quad.object
+            yield quad.triple
 
-    def get_rdftypes(self) -> Iterator[Description]:
-        for quad in self.frame.store.quads_for_pattern(
-            self.subject, RDF_TYPE_NODE, None, self.frame.name
-        ):
-            yield self.frame.get_description(cast(Node, quad.object))
+    def get_objects(self, p: NamedNode) -> Iterator[Description | Literal | Triple]:
+        for triple in self._triples(p):
+            if isinstance(triple.object, Node):
+                yield self.frame.get_description(cast(Node, triple.object))
+            else:
+                yield triple.object
+
+    def get_simple_types(self) -> Iterator[Description]:
+        for triple in self._triples(RDF_TYPE_NODE):
+            if isinstance(triple.object, NamedNode) and not self.frame._is_annotated(
+                triple
+            ):
+                yield self.frame.get_description(triple.object)
 
     def get_reifies(self) -> Iterator[Triple]:
-        for quad in self.frame.store.quads_for_pattern(
-            self.subject, RDF_REIFIES_NODE, None, self.frame.name
-        ):
-            if isinstance(quad.object, Triple):
-                if not self.frame._is_asserted(quad.object):
-                    yield quad.object
+        for triple in self._triples(RDF_REIFIES_NODE):
+            if isinstance(triple.object, Triple):
+                if not self.frame._is_asserted(triple.object):
+                    yield triple.object
 
     def get_regular_statements(self) -> Iterator[tuple[NamedNode, Statement]]:
-        for quad in self.frame.store.quads_for_pattern(
-            self.subject, None, None, self.frame.name
-        ):
+        for triple in self._triples(None):
             if self.list_items is not None:
-                if quad.predicate in LIST_PREDICATES:
+                if triple.predicate in LIST_PREDICATES:
                     continue
 
-            # FIXME: check if o is of expected type!
-            if quad.predicate not in SUGAR_PREDICATES:
+            is_plain_rdftype = (
+                triple.predicate == RDF_TYPE_NODE
+                and isinstance(triple.object, NamedNode)
+                and not self.frame._is_annotated(triple)
+            )
+            is_plain_reifies = (
+                triple.predicate == RDF_REIFIES_NODE
+                and isinstance(triple.object, Triple)
+                and not self.frame._is_annotated(triple)
+            )
+            if not is_plain_rdftype and not is_plain_reifies:
                 o = (
-                    self.frame.get_description(quad.object)
-                    if isinstance(quad.object, Node)
-                    else quad.object
+                    self.frame.get_description(triple.object)
+                    if isinstance(triple.object, Node)
+                    else triple.object
                 )
-                stmt = Statement(self, quad.predicate, o)
-                yield quad.predicate, stmt
+                stmt = Statement(self, triple.predicate, o)
+                yield triple.predicate, stmt
 
     def __lt__(self, other: Description) -> bool:
         return self._key < other._key
@@ -259,6 +267,7 @@ class Statement:
     s: Description
     p: NamedNode
     o: Description | Literal | Triple
+    _triple: Triple
     _key: SortKey
 
     def __init__(self, s: Description, p: NamedNode, o: Description | Literal | Triple):
