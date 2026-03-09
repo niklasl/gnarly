@@ -186,14 +186,11 @@ class TrigSerializer:
             print(self._base_decl.format(self.fmt.base_iri), file=self.out)
 
     def write_description(self, desc: Description):
-        is_blank = isinstance(desc.subject, BlankNode)
-        pure_blank = is_blank and desc.unreferenced and not desc.annotates
-
-        s_str = "[]" if pure_blank else self.fmt.to_str(desc.subject)
+        s_str = "[]" if desc.is_pure_blank() else self.fmt.to_str(desc.subject)
 
         reifies = list(desc.get_reifies())
         if len(reifies) > 0:
-            if pure_blank:
+            if desc.is_pure_blank():
                 rs = ""
             else:
                 rs = f"~ {s_str} "

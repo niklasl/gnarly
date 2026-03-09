@@ -98,15 +98,14 @@ class Description:
     frame: Frame
     subject: Node
 
-    unreferenced: bool
-
+    _unreferenced: bool
     _referenced_once: bool
     _blank_cycle: bool | None
 
     list_items: List | None
 
-    reifies: bool
-    annotates: bool
+    _reifies: bool
+    _annotates: bool
     _only_annotates: bool
     _only_annotation_name: bool
     _only_annotates_one: bool
@@ -131,7 +130,7 @@ class Description:
             if i > 1:
                 break
             i += 1
-        self.unreferenced = i == 0
+        self._unreferenced = i == 0
         self._referenced_once = i == 1
 
     def _has_blank_cycle(self) -> bool:
@@ -142,26 +141,26 @@ class Description:
         return self._blank_cycle
 
     def _check_annotates(self) -> None:
-        self.annotates = False
-        self.reifies = False
+        self._reifies = False
+        self._annotates = False
         self._reif_s = None
 
         all_annots = True
         multiple = False
         for triple in self.get_objects(RDF_REIFIES_NODE):
-            if self.annotates:
+            if self._annotates:
                 multiple = True
             if isinstance(triple, Triple):
                 if not multiple:
                     self._reif_s = cast(Node, triple.subject)
                 if self.frame._is_asserted(triple):
-                    self.annotates = True
+                    self._annotates = True
                     continue
                 else:
-                    self.reifies = True
+                    self._reifies = True
             all_annots = False
 
-        self._only_annotates = self.annotates and all_annots
+        self._only_annotates = self._annotates and all_annots
         self._only_annotation_name = self._only_annotates and not any(
             quad
             for quad in self.frame.store.quads_for_pattern(
@@ -195,16 +194,20 @@ class Description:
 
         return rest
 
+    def is_pure_blank(self) -> bool:
+        is_blank = isinstance(self.subject, BlankNode)
+        return is_blank and self._unreferenced and not self._annotates
+
     def is_embeddable(self) -> bool:
         if not isinstance(self.subject, BlankNode):
             return False
-        if self.reifies or self._only_annotation_name:
+        if self._reifies or self._only_annotation_name:
             return False
         return self._referenced_once and not self._has_blank_cycle()
 
     def is_embeddable_annotation(self) -> bool:
         return (
-            self.unreferenced
+            self._unreferenced
             and self._only_annotates_one
             and isinstance(self.subject, BlankNode)
             and any(self.get_regular_statements())
