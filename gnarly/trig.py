@@ -322,12 +322,7 @@ class TrigSerializer:
                 self.write_indent()
                 self.out.write(space + "~ ")
 
-            if (
-                annot.unreferenced
-                and annot.only_annotates_one
-                and isinstance(annot.subject, BlankNode)
-                and any(annot.get_regular_statements())
-            ):
+            if annot.is_embeddable_annotation():
                 self.indent()
                 self.indent()
                 if isnext and not prev_named:

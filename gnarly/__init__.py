@@ -53,8 +53,8 @@ class Frame:
                 (
                     (not isblank or d.unreferenced)
                     and (
-                        (not isblank and not d.only_annotation_name)
-                        or (isblank and not d.only_annotates_one)
+                        (not isblank and not d._only_annotation_name)
+                        or (isblank and not d._only_annotates_one)
                     )
                 )
                 or d.reifies
@@ -113,9 +113,9 @@ class Description:
 
     reifies: bool
     annotates: bool
-    only_annotates: bool
-    only_annotation_name: bool
-    only_annotates_one: bool
+    _only_annotates: bool
+    _only_annotation_name: bool
+    _only_annotates_one: bool
 
     _reif_s: Node | None
     _key: SortKey
@@ -139,13 +139,6 @@ class Description:
             i += 1
         self.unreferenced = i == 0
         self._referenced_once = i == 1
-
-    def is_embeddable(self) -> bool:
-        if not isinstance(self.subject, BlankNode):
-            return False
-        if self.reifies or self.only_annotation_name:
-            return False
-        return self._referenced_once and not self._has_blank_cycle()
 
     def _has_blank_cycle(self) -> bool:
         if self._blank_cycle is None:
@@ -174,15 +167,15 @@ class Description:
                     self.reifies = True
             all_annots = False
 
-        self.only_annotates = self.annotates and all_annots
-        self.only_annotation_name = self.only_annotates and not any(
+        self._only_annotates = self.annotates and all_annots
+        self._only_annotation_name = self._only_annotates and not any(
             quad
             for quad in self.frame.store.quads_for_pattern(
                 self.subject, None, None, self.frame.name
             )
             if quad.predicate != RDF_REIFIES_NODE
         )
-        self.only_annotates_one = self.only_annotates and not multiple
+        self._only_annotates_one = self._only_annotates and not multiple
 
     def _collect_list_items(self) -> List | None:
         first = None
@@ -207,6 +200,21 @@ class Description:
                 rest = [first] + ro.list_items
 
         return rest
+
+    def is_embeddable(self) -> bool:
+        if not isinstance(self.subject, BlankNode):
+            return False
+        if self.reifies or self._only_annotation_name:
+            return False
+        return self._referenced_once and not self._has_blank_cycle()
+
+    def is_embeddable_annotation(self) -> bool:
+        return (
+            self.unreferenced
+            and self._only_annotates_one
+            and isinstance(self.subject, BlankNode)
+            and any(self.get_regular_statements())
+        )
 
     def _triples(self, p: NamedNode | None = None) -> Iterator[Triple]:
         for quad in self.frame.store.quads_for_pattern(
