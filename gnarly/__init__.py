@@ -50,15 +50,9 @@ class Frame:
             d = self.get_description(s)
             isblank = isinstance(d.subject, BlankNode)
             if (
-                (
-                    (not isblank or d.unreferenced)
-                    and (
-                        (not isblank and not d._only_annotation_name)
-                        or (isblank and not d._only_annotates_one)
-                    )
-                )
-                or d.reifies
-                or d._has_blank_cycle()
+                not d.is_embeddable()
+                and not d.is_embeddable_annotation()
+                and not d._only_annotation_name
             ):
                 yield d
 
