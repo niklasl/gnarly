@@ -210,7 +210,7 @@ class Description:
             self._unreferenced
             and self._only_annotates_one
             and isinstance(self.subject, BlankNode)
-            and any(self.get_regular_statements())
+            and (any(self.get_simple_types()) or any(self.get_regular_statements()))
         )
 
     def _triples(self, p: NamedNode | None = None) -> Iterator[Triple]:
