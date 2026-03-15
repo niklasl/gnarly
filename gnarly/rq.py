@@ -4,15 +4,15 @@ from typing import TextIO
 from pyoxigraph import RdfFormat, Store, parse
 
 from . import Frame
-from .trig import TrigSerializer, TrigSettings, TurtleFormatter
+from .trig import TrigSerializer, TrigFormatOptions, TurtleFormatter
 
 
 def rdf_to_sparql_ask(
     store: Store, out: TextIO, prefixes: dict, base_iri: str | None = None
 ) -> None:
     frame = Frame(store)
-    fmt = TurtleFormatter(prefixes, base_iri)
-    serializer = TrigSerializer(out, fmt, TrigSettings(sparql_keywords=True))
+    options = TrigFormatOptions(sparql_keywords=True)
+    serializer = TrigSerializer(out, prefixes, base_iri, options)
     serializer.write_prelude()
     serializer.indent()
     print(file=out)

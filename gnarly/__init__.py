@@ -1,3 +1,4 @@
+from itertools import chain
 from typing import Iterator, cast
 
 from pyoxigraph import (BlankNode, DefaultGraph, Literal, NamedNode, Quad,
@@ -105,6 +106,7 @@ class Description:
     list_items: List | None
 
     _reifies: bool
+    _reifies_multiple: bool
     _annotates: bool
     _only_annotates: bool
     _only_annotation_name: bool
@@ -143,24 +145,30 @@ class Description:
     def _check_annotates(self) -> None:
         self._reifies = False
         self._annotates = False
+        self._only_annotates = False
+        self._reifies_multiple = False
         self._reif_s = None
 
-        all_annots = True
-        multiple = False
+        annot_count = 0
+        reifies_count = 0
         for triple in self.get_objects(RDF_REIFIES_NODE):
-            if self._annotates:
-                multiple = True
-            if isinstance(triple, Triple):
-                if not multiple:
-                    self._reif_s = cast(Node, triple.subject)
-                if self.frame._is_asserted(triple):
-                    self._annotates = True
-                    continue
-                else:
-                    self._reifies = True
-            all_annots = False
+            if not isinstance(triple, Triple):
+                continue
 
-        self._only_annotates = self._annotates and all_annots
+            if reifies_count == 0:
+                self._reif_s = cast(Node, triple.subject)
+
+            reifies_count += 1
+
+            if self.frame._is_asserted(triple):
+                annot_count += 1
+
+        if reifies_count > 0:
+            self._reifies = reifies_count > annot_count
+            self._annotates = annot_count > 0
+            self._only_annotates = annot_count == reifies_count
+            self._reifies_multiple = reifies_count - annot_count > 1
+
         self._only_annotation_name = self._only_annotates and not any(
             quad
             for quad in self.frame.store.quads_for_pattern(
@@ -168,7 +176,7 @@ class Description:
             )
             if quad.predicate != RDF_REIFIES_NODE
         )
-        self._only_annotates_one = self._only_annotates and not multiple
+        self._only_annotates_one = self._only_annotates and annot_count == 1
 
     def _collect_list_items(self) -> List | None:
         first = None
@@ -195,8 +203,12 @@ class Description:
         return rest
 
     def is_pure_blank(self) -> bool:
-        is_blank = isinstance(self.subject, BlankNode)
-        return is_blank and self._unreferenced and not self._annotates
+        return (
+            isinstance(self.subject, BlankNode)
+            and self._unreferenced
+            and not self._annotates
+            and not self._reifies_multiple
+        )
 
     def is_embeddable(self) -> bool:
         if not isinstance(self.subject, BlankNode):
@@ -212,6 +224,14 @@ class Description:
             and isinstance(self.subject, BlankNode)
             and (any(self.get_simple_types()) or any(self.get_regular_statements()))
         )
+
+    def has_multiple_statements(self) -> bool:
+        for i, _ in enumerate(
+            chain(self.get_simple_types(), self.get_regular_statements())
+        ):
+            if i > 0:
+                return True
+        return False
 
     def _triples(self, p: NamedNode | None = None) -> Iterator[Triple]:
         for quad in self.frame.store.quads_for_pattern(

@@ -3,10 +3,10 @@ PREFIX : <http://example.net/ns/>
 BASE <https://example.org/>
 
 <1> a :Person ;
-  :topic_interest :Q12418 {| a :Influence ;
+  :topic_interest :Q12418 {| a :Interest ;
         :date "1998-10-04"^^:date |}
     {| a :Statement ;
-        :date "2004-01-12"^^:date |} .
+        :date "2004-01-12"^^:date ; :source <x> |} .
 
 <a> a :Thing ;
     :name "A" ;
@@ -21,11 +21,12 @@ _:y a :Thing ;
 
 <c> a :Collection ;
     :items (1 [ :name "Two" ] ) ;
-    :items (1 <b> [ :name "Three" ] <d> <e> ) .
+    :items (1 <b> <c> [ :name "Three" ] <d> <e> ) .
 
 <d> a :Thing ;
     :name "Third" {| :source <one> |} ~ <namednote> ~ <f> ~ _:g ~ _:empty  ,
-        "Fourth" {| :source <other> |} ~ <namednote>  .
+        "Fourth" {| :source <other> |} ~ <namednote>  ,
+        "Fifth" ~ <one> ~ <namednote> ~ <f> ~ _:g ~ _:empty  .
 
 <e> a :Thing ;
     :references [ a :Some ; :name "some" ] .

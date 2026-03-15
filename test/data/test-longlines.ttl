@@ -3,6 +3,15 @@ PREFIX content: <https://example.org/term/content/>
 PREFIX form: <https://example.org/term/form/>
 PREFIX genre: <https://example.org/term/genre/>
 
+<http://data.europeana.eu/item/04802/243FA8618938F4117025F17A8B813C5F9AA4D619>
+  :subject genre:Fiction .
+
+<http://dbpedia.org/resource/Mona_Lisa> :shows [
+    a <http://dbpedia.org/resource/Cypress> ] .
+
+<https://example.org/4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865>
+  <https://example.org/53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3> <https://example.org/1121cfccd5913f0a63fec40a6ffd44ea64f9dc135c66634ba001d10bcf4302a2> .
+
 <https://library.example.org/fxql7jqr38b1dkf>
   a :AdministrativeMetadataDocument ,
     :BibliographicRecord ,
@@ -16,5 +25,9 @@ PREFIX genre: <https://example.org/term/genre/>
     form:Literature ,
     genre:Fiction .
 
-<https://library.example.org/x00000000000000> a :AdministrativeBibliographicRecordMetadataDocument ;
+<https://library.example.org/sys/globalchanges/2026-03-05/typenormalization/main>
+  a :GenerationProcess .
+
+<https://library.example.org/x00000000000000>
+  a :AdministrativeBibliographicRecordMetadataDocument ;
   :mainEntity <https://library.example.org/x00000000000000#it> .

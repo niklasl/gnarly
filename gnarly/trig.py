@@ -23,18 +23,21 @@ PNAME_LOCAL_ESC = re.compile(r"([~!$&'()*+,;=/?#@]|^[.-]|[.-]$|%(?![0-9A-Fa-f]{2
 LINEBREAK = re.compile('[\n\r]')
 
 
-class TrigSettings(NamedTuple):
+class TrigFormatOptions(NamedTuple):
     indent: str = '  '
     max_width: int = 88
     sparql_keywords: bool = True
+    long_annotation_newline: bool = False
+    end_annotation_newline: bool = True
+    end_bnode_newline: bool = True
+    force_type_oneline: bool = False
     long: bool = False
-    # dense: bool = False
 
 
 class TurtleFormatter:
     prefixes: dict[str, str]
     ns_to_prefix: dict[str, str]
-    base_iri: str
+    base_iri: str | None
 
     def __init__(self, prefixes, base_iri):
         self.prefixes = prefixes
@@ -114,7 +117,7 @@ class TurtleFormatter:
 class TrigSerializer:
     out: TextIO
     fmt: TurtleFormatter
-    settings: TrigSettings
+    options: TrigFormatOptions
     _pfx_decl: str
     _base_decl: str
 
@@ -126,11 +129,15 @@ class TrigSerializer:
     _just_indented: bool
 
     def __init__(
-        self, out: TextIO, fmt: TurtleFormatter, settings: TrigSettings | None = None
+        self,
+        out: TextIO,
+        prefixes: dict[str, str],
+        base_iri: str | None,
+        options: TrigFormatOptions | None = None,
     ):
         self.out = out
-        self.fmt = fmt
-        self.settings = settings or TrigSettings()
+        self.fmt = TurtleFormatter(prefixes, base_iri)
+        self.options = options or TrigFormatOptions()
         self._level = 0
         self._update_indent()
         self._pending_separator = None
@@ -138,7 +145,7 @@ class TrigSerializer:
         self._linewidth = 0
         self._just_indented = False
 
-        if self.settings.sparql_keywords:
+        if self.options.sparql_keywords:
             self._pfx_decl = "PREFIX {}: <{}>"
             self._base_decl = "BASE <{}>"
         else:
@@ -154,36 +161,36 @@ class TrigSerializer:
         self._update_indent()
 
     def _update_indent(self):
-        self._indent = self.settings.indent * self._level
+        self._indent = self.options.indent * self._level
 
     def serialize(self, frame: Frame) -> None:
         self.write_prelude()
         self.write_dataset(frame)
 
     def write_dataset(self, frame: Frame) -> None:
-        graphkey = "GRAPH " if self.settings.sparql_keywords else ""
+        graphkey = "GRAPH " if self.options.sparql_keywords else ""
         self.serialize_graph(frame)
         for name, frame in frame.get_named_descriptions():
-            print(file=self.out)
-            print(graphkey + self.fmt.to_str(name) + " {", file=self.out)
+            self.writeln()
+            self.write_line(graphkey + self.fmt.to_str(name) + " {")
             self.indent()
             self.serialize_graph(frame)
             self.dedent()
-            print(file=self.out)
-            print("}", file=self.out)
+            self.writeln()
+            self.write_line("}")
 
     def serialize_graph(self, frame: Frame) -> None:
         descriptions = frame.get_descriptions()
         for desc in sorted(descriptions):
-            print(file=self.out)
+            self.writeln()
             self.write_description(desc)
 
     def write_prelude(self) -> None:
         for pfx, ns in self.fmt.prefixes.items():
-            print(self._pfx_decl.format(pfx, ns), file=self.out)
+            self.write_line(self._pfx_decl.format(pfx, ns))
 
         if self.fmt.base_iri is not None:
-            print(self._base_decl.format(self.fmt.base_iri), file=self.out)
+            self.write_line(self._base_decl.format(self.fmt.base_iri))
 
     def write_description(self, desc: Description):
         s_str = "[]" if desc.is_pure_blank() else self.fmt.to_str(desc.subject)
@@ -198,7 +205,8 @@ class TrigSerializer:
                 for triple in reifies:
                     ts, tp, to = triple
                     trpl_s = self.fmt.to_str(triple)[3:-3]
-                    self.write_indented_line(f'<<{trpl_s}{rs}>> .')
+                    self.write_indent()
+                    self.write_line(f'<<{trpl_s}{rs}>> .')
             else:
                 trpl_s = self.fmt.to_str(reifies[0])[3:-3]
                 s_str = f'<<{trpl_s}{rs}>>'
@@ -209,55 +217,59 @@ class TrigSerializer:
             self.write_list(desc.list_items, keeplevel=True)
             s_str = ""
 
-        self.write(s_str)
-        typed = self.write_types(desc)
+        self.write_opt_predicate(s_str)
         self.indent()
+        multiple = self.write_description_body(desc)
 
-        if not typed:
-            more_predicates = False
-            for i, (p, _) in enumerate(desc.get_regular_statements()):
-                if i > 0:
-                    more_predicates = True
-                    break
-
-            if more_predicates:
-                self._pending_separator = ""
-
-        self.write_statements(desc)
-
-        if self.settings.long:
-            self.write_indented_line(".")
+        if multiple and self.options.long:
+            self.write_line(" ;")
+            self.dedent()
+            self.write_indent()
+            self.write_line(".")
         else:
-            self.writeln(" .")
+            self.write_line(" .")
+            self.dedent()
 
-        self.dedent()
+    def write_description_body(self, desc: Description) -> bool:
+        c = 1 if self.write_types(desc) else 0
+        if c == 0 and desc.has_multiple_statements():
+            self._pending_separator = ""
+        c += self.write_statements(desc)
+        return c > 1
 
     def write_types(self, desc: Description) -> bool:
         typerepr = self.get_typerepr(desc)
-        self.out.write(typerepr)
+        self.write(typerepr)
         return typerepr != ""
 
     def get_typerepr(self, desc) -> str:
         typereprs = sorted(self.fmt.to_str(t) for t in desc.get_simple_types())
         overflowed = (
-            self._linewidth + sum(len(t) for t in typereprs) > self.settings.max_width
+            (self.options.long and desc.has_multiple_statements())
+            or not self.options.force_type_oneline
+            and (
+                self._linewidth + 3 + sum(len(t) + 2 for t in typereprs)
+                > self.options.max_width
+            )
         )
         joiner = (
-            f" ,\n{self.settings.indent * (self._level + 2)}" if overflowed else " , "
+            f" ;\n{self.options.indent * self._level}a "
+            if self.options.long
+            else (
+                f" ,\n{self.options.indent * (self._level + 1)}"
+                if overflowed
+                else " , "
+            )
         )
         types = joiner.join(typereprs)
         if types:
-            lead = (
-                f"\n{self._indent}{self.settings.indent}"
-                if len(typereprs) > 1 and overflowed
-                else " "
-            )
+            lead = f"\n{self._indent}" if overflowed else " "
             self._pending_separator = " ;"
             return f"{lead}a {types}"
         else:
             return ""
 
-    def write_statements(self, desc: Description) -> None:
+    def write_statements(self, desc: Description) -> int:
         statements = sorted(desc.get_regular_statements())
 
         prev_p: NamedNode | None = None
@@ -266,16 +278,16 @@ class TrigSerializer:
             same_p = p == prev_p
 
             if same_p:
-                self._pending_separator = " ,"
+                self._pending_separator = " ," if not self.options.long else " ;"
 
             if self._pending_separator is not None:
-                print(self._pending_separator, file=self.out)
+                self.write_line(self._pending_separator)
                 self._linewidth = 0
                 self._pending_separator = None
                 self.write_indent()
 
-            if same_p:
-                self.write(self.settings.indent)
+            if same_p and not self.options.long:
+                self.write(self.options.indent)
             else:
                 self._pending_predicate = (
                     "a" if p == RDF_TYPE_NODE else self.fmt.to_str(p)
@@ -288,6 +300,8 @@ class TrigSerializer:
             self._pending_separator = " ;"
 
         self._pending_separator = None
+
+        return len(statements)
 
     def write_object(self, stmt: Statement) -> None:
         if isinstance(stmt.o, Description) and stmt.o.list_items is not None:
@@ -303,63 +317,90 @@ class TrigSerializer:
             o = stmt.o
 
         if o is not None:
-            self.write(self.fmt.to_str(o))
+            self.write_opt_predicate(self.fmt.to_str(o))
 
+        self.write_annotations(stmt)
+
+    def write_annotations(self, stmt) -> None:
+        annotations = sorted(stmt.get_annotations())
+        isnext = (
+            len(annotations) > 1
+            or self.options.long_annotation_newline
+            and any(annot.has_multiple_statements() for annot in annotations)
+        )
         prev_named = False
-        indented = False
-        isnext = False
-        for annot in sorted(stmt.get_annotations()):
-            space = "" if isnext or prev_named else " "
-            if prev_named:
-                self.writeln("")
-                if not indented:
-                    self.indent()
-                    self.indent()
-                    indented = True
-                self.write_indent()
-                self.out.write(space + "~ ")
+        keep_same_line = (
+            all(not annot.is_embeddable_annotation() for annot in annotations)
+            and self._linewidth
+            + sum(len(self.fmt.to_str(annot.subject)) + 3 for annot in annotations)
+            < self.options.max_width
+        )
 
+        for annot in annotations:
             if annot.is_embeddable_annotation():
                 self.indent()
                 self.indent()
-                if isnext and not prev_named:
-                    self.writeln("")
+                space = " "
+
+                if isnext and not keep_same_line:
+                    self.writeln()
                     self.write_indent()
-                self.write(space + "{|")
-                typed = self.write_types(annot)
+                    space = ""
+
                 self.indent()
-                self.write_statements(annot)
+                if prev_named:
+                    space += "~ "
+                self.write_opt_predicate(space + "{|")
+                multiple = self.write_description_body(annot)
                 self.dedent()
-                self.out.write(" |}")
+
+                if multiple and self.options.end_annotation_newline:
+                    self.writeln()
+                    self.write_indent()
+                    self.write("|}")
+                else:
+                    self.write(" |}")
+
                 self.dedent()
                 self.dedent()
             else:
-                if not prev_named:
-                    self.out.write(space + "~ ")
-                self.out.write(self.fmt.to_str(annot.subject))
+                if isnext and not keep_same_line:
+                    self.indent()
+                    self.indent()
+                    self.writeln()
+                    self.write_indent()
+                    space = ""
+                else:
+                    space = " "
+
+                self.write(space + "~ ")
+                self.write(self.fmt.to_str(annot.subject))
                 prev_named = True
 
-            isnext = True
+                if isnext and not keep_same_line:
+                    self.dedent()
+                    self.dedent()
 
-        if indented:
-            self.dedent()
-            self.dedent()
+            isnext = True
 
     def attempt_write_blank(self, desc: object) -> bool:
         if not isinstance(desc, Description):
             return False
         if desc.is_embeddable():
-            self.write("[")
-            typed = self.write_types(desc)
+            self.write_opt_predicate("[")
             self.indent()
             self.indent()
-            self.write_statements(desc)
-            self.dedent()
-            if self.settings.long:
+            multiple = self.write_description_body(desc)
+            if multiple and (self.options.end_bnode_newline or self.options.long):
+                if self.options.long:
+                    self.write(" ;")
+                self.writeln()
+                self.dedent()
                 self.write_indent()
-                self.out.write("]")
+                self.write("]")
             else:
-                self.out.write(" ]")
+                self.write(" ]")
+                self.dedent()
             self.dedent()
             return True
         return False
@@ -371,14 +412,23 @@ class TrigSerializer:
 
         for item in items:
             width += len(item)
-            if width > self.settings.max_width:
+            if width > self.options.max_width:
                 multiline = True
                 break
 
+        if not multiline and any(
+            isinstance(it, Description)
+            and it.is_embeddable()
+            and it.has_multiple_statements()
+            for it in list_items
+        ):
+            multiline = True
+
         if width == 0:
-            self.write("()")
-        elif multiline:
-            self.writeln("(")
+            self.write_opt_predicate("()")
+        elif multiline or self.options.long:
+            self.write_opt_predicate("(")
+            self.writeln()
             if not keeplevel:
                 self.indent()
             self.indent()
@@ -386,80 +436,125 @@ class TrigSerializer:
                 self.write_indent()
                 if isinstance(ref, Description) and ref.list_items is not None:
                     self.write_list(ref.list_items, keeplevel=True)
-                    self.writeln("")
+                    self.writeln()
                 elif self.attempt_write_blank(ref):
-                    self.writeln("")
+                    self.writeln()
                 else:
-                    self.writeln(items[i])
+                    self.write_line(items[i])
             self.dedent()
             self.write_indent()
-            self.out.write(")")
+            self.write(")")
             if not keeplevel:
                 self.dedent()
         else:
-            self.write("(")
+            self.write_opt_predicate("(")
             for i, ref in enumerate(list_items):
-                self.out.write(" ")
+                self.write(" ")
                 if isinstance(ref, Description) and ref.list_items is not None:
                     self.write_list(ref.list_items)
                 elif not self.attempt_write_blank(ref):
-                    self.out.write(items[i])
-            self.out.write(" )")
+                    self.write(items[i])
+            self.write(" )")
 
-    def write(self, s: str) -> None:
+    def write_opt_predicate(self, s: str) -> None:
         if self._pending_predicate:
             s = self._pending_predicate + " " + s
 
-        len_s = len(s)
         if (
-            self._linewidth + len_s > self.settings.max_width
+            self._linewidth + len(s) > self.options.max_width
             and not self._just_indented
         ):
-            print(file=self.out)
-            self.out.write(self._indent)
-            self._linewidth = 0
+            self.writeln()
+            self.write(self._indent)
         elif self._pending_predicate and not self._just_indented:
             s = " " + s
-            len_s += 1
 
         self._pending_predicate = None
         self._just_indented = False
-        self._linewidth += len_s
+        self.write(s)
+
+    def write(self, s: str) -> None:
+        self._linewidth += len(s)
         self.out.write(s)
 
     def write_indent(self) -> None:
         self._just_indented = True
-        self.out.write(self._indent)
+        self.write(self._indent)
 
-    def write_indented_line(self, s) -> None:
-        self.write_indent()
-        self.writeln(s)
+    def write_line(self, s: str) -> None:
+        print(s, file=self.out)
+        self._linewidth = 0
 
-    def writeln(self, s: str) -> None:
-        self.write(s)
+    def writeln(self) -> None:
         print(file=self.out)
         self._linewidth = 0
 
 
 def pretty_print_trig(
-    store: Store, out: TextIO, prefixes: dict, base_iri: str | None = None
+    store: Store,
+    out: TextIO,
+    prefixes: dict,
+    base_iri: str | None = None,
+    options: TrigFormatOptions | None = None,
 ) -> None:
     frame = Frame(store)
-    fmt = TurtleFormatter(prefixes, base_iri)
-    serializer = TrigSerializer(out, fmt)
+    serializer = TrigSerializer(out, prefixes, base_iri, options)
     serializer.serialize(frame)
 
 
 def main() -> None:
+    import argparse
     import sys
+    from pathlib import Path
+
+    def indent_char(s: str):
+        if s == 't':
+            return '\t'
+        if s.isdecimal():
+            return ' ' * int(s)
+        raise argparse.ArgumentTypeError(
+            f"Invalid indent value: `{s}` (must be a number or `t`)"
+        )
+
+    argp = argparse.ArgumentParser()
+    argp.add_argument('-I', '--indent', type=indent_char, default='2')
+    argp.add_argument('-M', '--max-width', type=int, default=88)
+    argp.add_argument('-S', '--style')
+    argp.add_argument('sources', metavar='SOURCE', nargs='*')
+    args = argp.parse_args()
+
+    options = TrigFormatOptions(
+        indent=args.indent,
+        max_width=args.max_width,
+        sparql_keywords=args.style != 'classic',
+        long_annotation_newline=args.style == 'long',
+        end_annotation_newline=args.style != 'classic',
+        end_bnode_newline=args.style != 'classic',
+        force_type_oneline=args.style == 'classic',
+        long=args.style == 'long',
+    )
 
     store = Store()
-    reader = parse(sys.stdin.buffer, format=RdfFormat.TRIG)
-    store.bulk_extend(reader)
+    base_iri: str | None = None
+    prefixes: dict[str, str] = {}
 
-    pretty_print_trig(
-        store, sys.stdout, prefixes=reader.prefixes, base_iri=reader.base_iri
-    )
+    for fpath in args.sources:
+        if fpath == '-':
+            reader = parse(sys.stdin.buffer, format=RdfFormat.TRIG)
+        else:
+            file_iri = Path(fpath).absolute().as_uri()
+            reader = parse(path=fpath, base_iri=file_iri)
+            if not base_iri:
+                base_iri = file_iri
+        store.bulk_extend(reader)
+        prefixes |= reader.prefixes
+    else:
+        reader = parse(sys.stdin.buffer, format=RdfFormat.TRIG)
+        store.bulk_extend(reader)
+        base_iri = reader.base_iri
+        prefixes |= reader.prefixes
+
+    pretty_print_trig(store, sys.stdout, prefixes, base_iri, options)
 
 
 if __name__ == '__main__':
