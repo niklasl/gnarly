@@ -502,6 +502,19 @@ def pretty_print_trig(
     serializer.serialize(frame)
 
 
+def get_options(indent, max_width, style='modern') -> TrigFormatOptions:
+    return TrigFormatOptions(
+        indent=indent,
+        max_width=max_width,
+        sparql_keywords=style != 'classic',
+        long_annotation_newline=style == 'long',
+        end_annotation_newline=style != 'classic',
+        end_bnode_newline=style != 'classic',
+        force_type_oneline=style == 'classic',
+        long=style == 'long',
+    )
+
+
 def main() -> None:
     import argparse
     import sys
@@ -523,16 +536,7 @@ def main() -> None:
     argp.add_argument('sources', metavar='SOURCE', nargs='*')
     args = argp.parse_args()
 
-    options = TrigFormatOptions(
-        indent=args.indent,
-        max_width=args.max_width,
-        sparql_keywords=args.style != 'classic',
-        long_annotation_newline=args.style == 'long',
-        end_annotation_newline=args.style != 'classic',
-        end_bnode_newline=args.style != 'classic',
-        force_type_oneline=args.style == 'classic',
-        long=args.style == 'long',
-    )
+    options = get_options(args.indent, args.max_width, args.style)
 
     store = Store()
     base_iri: str | None = None
@@ -548,7 +552,8 @@ def main() -> None:
                 base_iri = file_iri
         store.bulk_extend(reader)
         prefixes |= reader.prefixes
-    else:
+
+    if not args.sources:
         reader = parse(sys.stdin.buffer, format=RdfFormat.TRIG)
         store.bulk_extend(reader)
         base_iri = reader.base_iri
