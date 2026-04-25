@@ -22,16 +22,21 @@ PNAME_LOCAL_ESC = re.compile(r"([~!$&'()*+,;=/?#@]|^[.-]|[.-]$|%(?![0-9A-Fa-f]{2
 
 LINEBREAK = re.compile('[\n\r]')
 
+SIGIL_KEYWORDS = 0
+UCASE_KEYWORDS = 1
+LCASE_KEYWORDS = 2
+
 
 class TrigFormatOptions(NamedTuple):
     indent: str = '  '
     max_width: int = 88
-    sparql_keywords: bool = True
+    keyword_style: int = LCASE_KEYWORDS
     long_annotation_newline: bool = False
     end_annotation_newline: bool = True
     end_bnode_newline: bool = True
     force_type_oneline: bool = False
-    long: bool = False
+    compact_delims: bool = False
+    longhand: bool = False
 
 
 class TurtleFormatter:
@@ -120,6 +125,7 @@ class TrigSerializer:
     options: TrigFormatOptions
     _pfx_decl: str
     _base_decl: str
+    _graphkey: str
 
     _indent: str
     _level: int
@@ -144,13 +150,20 @@ class TrigSerializer:
         self._pending_predicate = None
         self._linewidth = 0
         self._just_indented = False
+        self._padspace = "" if self.options.compact_delims else " "
 
-        if self.options.sparql_keywords:
+        if self.options.keyword_style == UCASE_KEYWORDS:
             self._pfx_decl = "PREFIX {}: <{}>"
             self._base_decl = "BASE <{}>"
-        else:
-            self._pfx_decl = "@prefix {}: <{}> ."
-            self._base_decl = "@base <{}> ."
+            self._graphkey = "GRAPH "
+        elif self.options.keyword_style == LCASE_KEYWORDS:
+            self._pfx_decl = "prefix {}: <{}>"
+            self._base_decl = "base <{}>"
+            self._graphkey = "graph "
+        else:  # SIGIL_KEYWORDS
+            self._pfx_decl = "@prefix {}: <{}>" + self._padspace + "."
+            self._base_decl = "@base <{}>" + self._padspace + "."
+            self._graphkey = ""
 
     def indent(self):
         self._level += 1
@@ -168,11 +181,10 @@ class TrigSerializer:
         self.write_dataset(frame)
 
     def write_dataset(self, frame: Frame) -> None:
-        graphkey = "GRAPH " if self.options.sparql_keywords else ""
         self.serialize_graph(frame)
         for name, frame in frame.get_named_descriptions():
             self.writeln()
-            self.write_line(graphkey + self.fmt.to_str(name) + " {")
+            self.write_line(self._graphkey + self.fmt.to_str(name) + " {")
             self.indent()
             self.serialize_graph(frame)
             self.dedent()
@@ -192,7 +204,7 @@ class TrigSerializer:
         if self.fmt.base_iri is not None:
             self.write_line(self._base_decl.format(self.fmt.base_iri))
 
-    def write_description(self, desc: Description):
+    def write_description(self, desc: Description) -> None:
         s_str = "[]" if desc.is_pure_blank() else self.fmt.to_str(desc.subject)
 
         reifies = list(desc.get_reifies())
@@ -200,16 +212,19 @@ class TrigSerializer:
             if desc.is_pure_blank():
                 rs = ""
             else:
-                rs = f"~ {s_str} "
+                rs = f"~ {s_str}{self._padspace}"
             if len(reifies) > 1:
                 for triple in reifies:
                     ts, tp, to = triple
                     trpl_s = self.fmt.to_str(triple)[3:-3]
                     self.write_indent()
-                    self.write_line(f'<<{trpl_s}{rs}>> .')
+                    self.write_line(f'<<{trpl_s}{rs}>>{self._padspace}.')
             else:
                 trpl_s = self.fmt.to_str(reifies[0])[3:-3]
                 s_str = f'<<{trpl_s}{rs}>>'
+
+            if not any(desc.get_regular_statements()):
+                return
 
         self.write_indent()
 
@@ -221,13 +236,13 @@ class TrigSerializer:
         self.indent()
         multiple = self.write_description_body(desc)
 
-        if multiple and self.options.long:
-            self.write_line(" ;")
+        if multiple and self.options.longhand:
+            self.write_line(f"{self._padspace};")
             self.dedent()
             self.write_indent()
             self.write_line(".")
         else:
-            self.write_line(" .")
+            self.write_line(f"{self._padspace}.")
             self.dedent()
 
     def write_description_body(self, desc: Description) -> bool:
@@ -245,7 +260,7 @@ class TrigSerializer:
     def get_typerepr(self, desc) -> str:
         typereprs = sorted(self.fmt.to_str(t) for t in desc.get_simple_types())
         overflowed = (
-            (self.options.long and desc.has_multiple_statements())
+            (self.options.longhand and desc.has_multiple_statements())
             or not self.options.force_type_oneline
             and (
                 self._linewidth + 3 + sum(len(t) + 2 for t in typereprs)
@@ -253,18 +268,18 @@ class TrigSerializer:
             )
         )
         joiner = (
-            f" ;\n{self.options.indent * self._level}a "
-            if self.options.long
+            f"{self._padspace};\n{self.options.indent * self._level}a "
+            if self.options.longhand
             else (
                 f" ,\n{self.options.indent * (self._level + 1)}"
                 if overflowed
-                else " , "
+                else f"{self._padspace}, "
             )
         )
         types = joiner.join(typereprs)
         if types:
             lead = f"\n{self._indent}" if overflowed else " "
-            self._pending_separator = " ;"
+            self._pending_separator = f"{self._padspace};"
             return f"{lead}a {types}"
         else:
             return ""
@@ -274,11 +289,15 @@ class TrigSerializer:
 
         prev_p: NamedNode | None = None
 
+        repeat_predicate = self.options.longhand
+
         for p, stmt in statements:
             same_p = p == prev_p
 
             if same_p:
-                self._pending_separator = " ," if not self.options.long else " ;"
+                self._pending_separator = (
+                    self._padspace + ("," if not repeat_predicate else ";")
+                )
 
             if self._pending_separator is not None:
                 self.write_line(self._pending_separator)
@@ -286,7 +305,7 @@ class TrigSerializer:
                 self._pending_separator = None
                 self.write_indent()
 
-            if same_p and not self.options.long:
+            if same_p and not repeat_predicate:
                 self.write(self.options.indent)
             else:
                 self._pending_predicate = (
@@ -297,7 +316,7 @@ class TrigSerializer:
 
             self.write_object(stmt)
 
-            self._pending_separator = " ;"
+            self._pending_separator = f"{self._padspace};"
 
         self._pending_separator = None
 
@@ -321,11 +340,14 @@ class TrigSerializer:
 
         self.write_annotations(stmt)
 
-    def write_annotations(self, stmt) -> None:
-        annotations = sorted(stmt.get_annotations())
+    def write_annotations(self, stmt: Statement) -> None:
+        annotations = sorted(
+            stmt.get_annotations(),
+            key=lambda x: (isinstance(x.subject, NamedNode), x)
+        )
         isnext = (
             len(annotations) > 1
-            or self.options.long_annotation_newline
+            or self.options.longhand
             and any(annot.has_multiple_statements() for annot in annotations)
         )
         prev_named = False
@@ -391,8 +413,8 @@ class TrigSerializer:
             self.indent()
             self.indent()
             multiple = self.write_description_body(desc)
-            if multiple and (self.options.end_bnode_newline or self.options.long):
-                if self.options.long:
+            if multiple and (self.options.end_bnode_newline or self.options.longhand):
+                if self.options.longhand:
                     self.write(" ;")
                 self.writeln()
                 self.dedent()
@@ -426,7 +448,7 @@ class TrigSerializer:
 
         if width == 0:
             self.write_opt_predicate("()")
-        elif multiline or self.options.long:
+        elif multiline or self.options.longhand:
             self.write_opt_predicate("(")
             self.writeln()
             if not keeplevel:
@@ -502,16 +524,23 @@ def pretty_print_trig(
     serializer.serialize(frame)
 
 
-def get_options(indent, max_width, style='modern') -> TrigFormatOptions:
+def get_options(indent, max_width, style) -> TrigFormatOptions:
+    keyword_style = {
+        "modern": LCASE_KEYWORDS,
+        "classic": SIGIL_KEYWORDS,
+        "longhand": UCASE_KEYWORDS,
+    }.get(style, UCASE_KEYWORDS)
+
     return TrigFormatOptions(
         indent=indent,
         max_width=max_width,
-        sparql_keywords=style != 'classic',
-        long_annotation_newline=style == 'long',
+        keyword_style=keyword_style,
+        long_annotation_newline=style == 'longhand',
         end_annotation_newline=style != 'classic',
         end_bnode_newline=style != 'classic',
         force_type_oneline=style == 'classic',
-        long=style == 'long',
+        compact_delims=style == 'classic',
+        longhand=style == 'longhand',
     )
 
 
@@ -536,7 +565,7 @@ def main() -> None:
     argp.add_argument('sources', metavar='SOURCE', nargs='*')
     args = argp.parse_args()
 
-    options = get_options(args.indent, args.max_width, args.style)
+    options = get_options(args.indent, args.max_width, args.style or "modern")
 
     store = Store()
     base_iri: str | None = None

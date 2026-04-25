@@ -19,8 +19,8 @@ By default, Turtle/TriG is written with the following features:
 
 ### Example Output
 ```turtle
-PREFIX : <https://example.net/ns/>
-PREFIX ctg: <https://example.net/ns/category/>
+prefix : <https://example.net/ns/>
+prefix ctg: <https://example.net/ns/category/>
 
 <https://example.org/a> a :Thing ;
   :category ctg:CommonThings ;
@@ -69,16 +69,16 @@ Simple round-trip run of the official RDF turtle/trig tests:
 
 The following examples are serialized using the default formatting options. (Many are variations on examples in the main [RDF 1.2 Primer](https://www.w3.org/TR/rdf12-primer/).)
 
-`#` Prefixes are sorted, and declared using SPARQL-style syntax by default:
+`#` Prefixes are sorted, and declared using *lowercase* SPARQL-style syntax by default:
 ```turtle
-PREFIX : <http://example.net/ns/>
-PREFIX dcterms: <http://purl.org/dc/terms/>
-PREFIX foaf: <http://xmlns.com/foaf/0.1/>
-PREFIX lio: <http://purl.org/net/lio#>
-PREFIX prov: <http://www.w3.org/ns/prov#>
-PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-PREFIX wd: <http://www.wikidata.org/entity/>
-PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+prefix : <http://example.net/ns/>
+prefix dcterms: <http://purl.org/dc/terms/>
+prefix foaf: <http://xmlns.com/foaf/0.1/>
+prefix lio: <http://purl.org/net/lio#>
+prefix prov: <http://www.w3.org/ns/prov#>
+prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+prefix wd: <http://www.wikidata.org/entity/>
+prefix xsd: <http://www.w3.org/2001/XMLSchema#>
 ```
 `#` Types are written on the subject line:
 ```turtle
@@ -172,7 +172,7 @@ There are three named styles, exemplified here with differences in output:
 
 This is the default, described above.
 ```turtle
-PREFIX : <https://example.net/ns/>
+prefix : <https://example.net/ns/>
 
 <https://example.org/a> a :Thing ;
   :references <https://example.org/b> ,
@@ -189,24 +189,24 @@ PREFIX : <https://example.net/ns/>
 
 ### Classic
 
-This form is more compact, but at the expense of readability for deeply nested blank nodes, and/or annotations. It also uses the classic, `@`-sigil for prefix and base.
+This form is more compact, but at the expense of readability for deeply nested blank nodes, and/or annotations. It also uses the classic, `@`-sigil for prefix and base, no explicit graph keyword, and no padding space before `;`, `,`, and `.` separators.
 ```turtle
-@prefix : <https://example.net/ns/> .
+@prefix : <https://example.net/ns/>.
 
-<https://example.org/a> a :Thing ;
-  :references <https://example.org/b> ,
-    [ a :Thing ;
-      :name "C" ;
+<https://example.org/a> a :Thing;
+  :references <https://example.org/b>,
+    [ a :Thing;
+      :name "C";
       :references [
-          :name "D" ;
-          :references [ :name "E" ] ] ] ;
-  :value 1 ,
-    "a" .
+          :name "D";
+          :references [ :name "E" ] ] ];
+  :value 1,
+    "a".
 ```
 
-### Long
+### Longhand
 
-Puts predicates, including types, on new lines, and ends all statement lines with semicolon; ending a subject description with a period on its own line.
+Puts predicates, including types, on new lines, and ends all statement lines with semicolon; ending a subject description with a period on its own line. Uses uppercase SPARQL keywords.
 
 This style is useful for rapid copy&paste editing and line-based diffs:
 ```turtle
