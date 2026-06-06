@@ -445,7 +445,13 @@ class TrigSerializer:
         if not multiline and any(
             isinstance(it, Description)
             and it.is_embeddable()
-            and it.has_multiple_statements()
+            and (
+                it.has_multiple_statements()
+                or any(
+                    isinstance(stmt.o, Description) and stmt.o.is_embeddable()
+                    for p, stmt in it.get_regular_statements()
+                )
+            )
             for it in list_items
         ):
             multiline = True
