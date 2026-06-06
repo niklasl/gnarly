@@ -182,9 +182,13 @@ class TrigSerializer:
 
     def write_dataset(self, frame: Frame) -> None:
         self.serialize_graph(frame)
-        for name, frame in frame.get_named_descriptions():
+        named_frames = sorted(
+            (self.fmt.to_str(name), frame)
+            for name, frame in frame.get_named_descriptions()
+        )
+        for name, frame in named_frames:
             self.writeln()
-            self.write_line(self._graphkey + self.fmt.to_str(name) + " {")
+            self.write_line(self._graphkey + name + " {")
             self.indent()
             self.serialize_graph(frame)
             self.dedent()
