@@ -24,7 +24,7 @@ Term = Node | Literal | Triple
 
 type List = list[Description | Literal | Triple]
 
-type SortKey = tuple[bool, str, int, bool, str]
+SortKey = tuple[bool, str, int, bool, str]
 
 
 class Frame:
@@ -48,8 +48,7 @@ class Frame:
         )
         for row in cast(QuerySolutions, results):
             s = row['s']
-            d = self.get_description(s)
-            isblank = isinstance(d.subject, BlankNode)
+            d = self._get_description(s)
             if (
                 not d.is_embeddable()
                 and not d.is_embeddable_annotation()
@@ -57,7 +56,7 @@ class Frame:
             ):
                 yield d
 
-    def get_description(self, n: Node) -> Description:
+    def _get_description(self, n: Node) -> Description:
         if n in self._cache:
             return self._cache[n]
 
@@ -151,7 +150,7 @@ class Description:
 
         annot_count = 0
         reifies_count = 0
-        for triple in self.get_objects(RDF_REIFIES_NODE):
+        for triple in self._get_objects(RDF_REIFIES_NODE):
             if not isinstance(triple, Triple):
                 continue
 
@@ -180,7 +179,7 @@ class Description:
 
     def _collect_list_items(self) -> List | None:
         first = None
-        for o in self.get_objects(RDF_FIRST_NODE):
+        for o in self._get_objects(RDF_FIRST_NODE):
             if first is not None:
                 return None
             first = o
@@ -188,7 +187,7 @@ class Description:
             return None
 
         rest: List | None = None
-        for ro in self.get_objects(RDF_REST_NODE):
+        for ro in self._get_objects(RDF_REST_NODE):
             if rest is not None:
                 return None
 
@@ -239,10 +238,10 @@ class Description:
         ):
             yield quad.triple
 
-    def get_objects(self, p: NamedNode) -> Iterator[Description | Literal | Triple]:
+    def _get_objects(self, p: NamedNode) -> Iterator[Description | Literal | Triple]:
         for triple in self._triples(p):
             if isinstance(triple.object, Node):
-                yield self.frame.get_description(cast(Node, triple.object))
+                yield self.frame._get_description(cast(Node, triple.object))
             else:
                 yield triple.object
 
@@ -251,7 +250,7 @@ class Description:
             if isinstance(triple.object, NamedNode) and not self.frame._is_annotated(
                 triple
             ):
-                yield self.frame.get_description(triple.object)
+                yield self.frame._get_description(triple.object)
 
     def get_reifies(self) -> Iterator[Triple]:
         for triple in self._triples(RDF_REIFIES_NODE):
@@ -277,11 +276,11 @@ class Description:
             )
             if not is_plain_rdftype and not is_plain_reifies:
                 o = (
-                    self.frame.get_description(triple.object)
+                    self.frame._get_description(triple.object)
                     if isinstance(triple.object, Node)
                     else triple.object
                 )
-                stmt = Statement(self, triple.predicate, o)
+                stmt = Statement(self, triple, o)
                 yield triple.predicate, stmt
 
     def __lt__(self, other: Description) -> bool:
@@ -295,22 +294,18 @@ class Statement:
     _triple: Triple
     _key: SortKey
 
-    def __init__(self, s: Description, p: NamedNode, o: Description | Literal | Triple):
+    def __init__(self, s: Description, triple: Triple, o: Description | Literal | Triple):
         self.s = s
-        self.p = p
+        self.p = triple.predicate
         self.o = o
-        self._triple = Triple(
-            s.subject if isinstance(s, Description) else s,
-            p,
-            o.subject if isinstance(o, Description) else o,
-        )
+        self._triple = triple
         self._key = o._key if isinstance(o, Description) else make_sort_key(o)
 
     def get_annotations(self) -> Iterator[Description]:
         for quad in self.s.frame.store.quads_for_pattern(
             None, RDF_REIFIES_NODE, self._triple, self.s.frame.name
         ):
-            yield self.s.frame.get_description(cast(Node, quad.subject))
+            yield self.s.frame._get_description(cast(Node, quad.subject))
 
     def __lt__(self, other: Statement) -> bool:
         return self._key < other._key
@@ -318,8 +313,8 @@ class Statement:
 
 def make_sort_key(term: Term, reifies_s: Node | None = None) -> SortKey:
     isblank = isinstance(term, BlankNode) or term == RDF_NIL_NODE
-    s1 = (isblank, str(term) if isinstance(term, Triple) else term.value)
-    s2 = (
+    s1: tuple[bool, str] = (isblank, str(term) if isinstance(term, Triple) else term.value)
+    s2: tuple[bool, str, int] = (
         (isinstance(reifies_s, BlankNode), reifies_s.value) + (1,)
         if reifies_s
         else s1 + (0,)

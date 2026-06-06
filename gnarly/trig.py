@@ -1,5 +1,5 @@
 import re
-from typing import Iterator, NamedTuple, TextIO
+from typing import NamedTuple, TextIO
 
 from pyoxigraph import (BlankNode, DefaultGraph, Literal, NamedNode, Quad,
                         RdfFormat, Store, Triple, parse)
@@ -49,7 +49,7 @@ class TurtleFormatter:
         self.ns_to_prefix = {ns: pfx for pfx, ns in prefixes.items()}
         self.base_iri = base_iri
 
-    def shorten(self, iri: str):
+    def shorten(self, iri: str) -> str:
         if iri in self.ns_to_prefix:
             return f"{self.ns_to_prefix[iri]}:"
 
