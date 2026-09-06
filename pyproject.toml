@@ -1,7 +1,16 @@
 [project]
 name = "gnarly"
 dynamic = ["version"]
-requires-python = ">=3.14"
+requires-python = ">=3.13"
 dependencies = [
-    "pyoxigraph>=0.5.5,<2",
+    "pyoxigraph>=0.5.11,<2",
 ]
+description = "RDF 1.2 pretty-printer."
+authors = [
+    {name = "Niklas Lindström", email = "lindstream@gmail.com"},
+]
+readme = "README.md"
+license = "0BSD"
+
+[project.urls]
+repository = "https://github.com/niklasl/gnarly"
