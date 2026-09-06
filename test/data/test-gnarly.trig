@@ -33,7 +33,7 @@ _:y a :Thing ;
 
 << <a> :name "B" >> a :Claim .
 
-<< <a> :name "B "~ <claim> >> a :Claim .
+<< <a> :name "B" ~ <claim> >> a :Claim .
 
 << <a> :name "C" ~ <f> >> a :Claim .
 << <a> :name "D" ~ <f> >> .
@@ -56,7 +56,7 @@ _:z0 a :Thing ; :rel [ :rel _:z0 ] .
 
 <xyz>
   a 123 {| :note "ill-typed" |} ,
-    :Monograph {| :note "annnoted-type" |} ,
+    :Monograph {| :note "annotated-type" |} ,
     <<( <xyz> rdf:reifies rdf:type )>> ;
   rdf:reifies rdf:type .
 
