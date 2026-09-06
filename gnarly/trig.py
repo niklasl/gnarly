@@ -138,7 +138,7 @@ class TrigSerializer:
         self,
         out: TextIO,
         prefixes: dict[str, str],
-        base_iri: str | None,
+        base_iri: str | None = None,
         options: TrigFormatOptions | None = None,
     ):
         self.out = out
@@ -184,7 +184,7 @@ class TrigSerializer:
         self.serialize_graph(frame)
         named_frames = sorted(
             (self.fmt.to_str(name), frame)
-            for name, frame in frame.get_named_descriptions()
+            for name, frame in frame.get_named_frames()
         )
         for name, frame in named_frames:
             self.writeln()
@@ -226,9 +226,6 @@ class TrigSerializer:
             else:
                 trpl_s = self.fmt.to_str(reifies[0])[3:-3]
                 s_str = f'<<{trpl_s}{rs}>>'
-
-            if not any(desc.get_regular_statements()):
-                return
 
         self.write_indent()
 

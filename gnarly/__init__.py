@@ -1,3 +1,4 @@
+from __future__ import annotations
 from itertools import chain
 from typing import Iterator, cast
 
@@ -38,7 +39,7 @@ class Frame:
         self.name = name or DefaultGraph()
         self._cache = {}
 
-    def get_named_descriptions(self) -> Iterator[tuple[Node, Frame]]:
+    def get_named_frames(self) -> Iterator[tuple[Node, Frame]]:
         for name in self.store.named_graphs():
             yield name, Frame(self.store, name)
 
@@ -74,7 +75,7 @@ class Frame:
         return any(self.store.quads_for_pattern(ts, tp, to, self.name))
 
     def _is_annotated(self, triple: Triple) -> bool:
-        return any(self.store.quads_for_pattern(None, RDF_REIFIES_NODE, triple))
+        return any(self.store.quads_for_pattern(None, RDF_REIFIES_NODE, triple, self.name))
 
     def _check_blank_cycle(self, s: Node) -> bool:
         if not isinstance(s, BlankNode):
