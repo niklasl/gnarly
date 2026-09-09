@@ -1,0 +1,6 @@
+/dist
+/.mypy_cache
+/*.egg-info
+__pycache__
+
+*.sw[f-p]
