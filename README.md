@@ -2,7 +2,17 @@
 
 Gnarly is a pretty-printer for [RDF 1.2](https://www.w3.org/TR/rdf12-concepts/), used for serializing [Turtle](https://www.w3.org/TR/rdf12-turtle/), [TriG](https://www.w3.org/TR/rdf12-trig/), and related RDF syntaxes.
 
-## Turtle/TriG
+## Usage
+
+Install from source or PyPI (e.g. using `pip`). Gnarly is written in [Python](https://www.python.org/) and uses [pyoxigraph](https://pyoxigraph.readthedocs.io/) for parsing RDF.
+
+Pass files or pipe to the CLI:
+
+    $ gnarly test/data/test-gnarly.trig
+
+(See `gnarly -h` for all options.)
+
+## Pretty-Printing Turtle/TriG
 
 By default, Turtle/TriG is written with the following features:
 
@@ -55,15 +65,78 @@ prefix ctg: <https://example.net/ns/category/>
 
 <https://example.org/d> :references <https://example.org/c> .
 ```
-## Usage
 
-Gnarly is currently written in [Python](https://www.python.org/) and uses [pyoxigraph](https://pyoxigraph.readthedocs.io/) for parsing RDF.
+### Formatting Options
 
-Command-line use (use `-h` for more options):
+There are different style conventions for Turtle/TriG. Gnarly has options to tweak some things to adhere to different preferences.
 
-    $ gnarly test/data/test-gnarly.trig
+The default settings are:
+- Indent: 2 spaces
+- Max column: 88 characters
 
-## Detailed Formatting
+There are three named styles, exemplified here with differences in output:
+
+#### Modern
+
+This is the default, described above.
+```turtle
+prefix : <https://example.net/ns/>
+
+<https://example.org/a> a :Thing ;
+  :references <https://example.org/b> ,
+    [ a :Thing ;
+      :name "C" ;
+      :references [
+          :name "D" ;
+          :references [ :name "E" ]
+        ]
+    ] ;
+  :value 1 ,
+    "a" .
+```
+
+#### Classic
+
+This form is more compact, but at the expense of readability for deeply nested blank nodes, and/or annotations. It also uses the classic, `@`-sigil for prefix and base, no explicit graph keyword, and no padding space before `;`, `,`, and `.` separators.
+```turtle
+@prefix : <https://example.net/ns/>.
+
+<https://example.org/a> a :Thing;
+  :references <https://example.org/b>,
+    [ a :Thing;
+      :name "C";
+      :references [
+          :name "D";
+          :references [ :name "E" ] ] ];
+  :value 1,
+    "a".
+```
+
+#### Longhand
+
+Puts predicates, including types, on new lines, and ends all statement lines with semicolon; ending a subject description with a period on its own line. Uses uppercase SPARQL keywords.
+
+This style is useful for rapid copy&paste editing and line-based diffs:
+```turtle
+PREFIX : <https://example.net/ns/>
+
+<https://example.org/a>
+  a :Thing ;
+  :references <https://example.org/b> ;
+  :references [
+      a :Thing ;
+      :name "C" ;
+      :references [
+          :name "D" ;
+          :references [ :name "E" ] ;
+        ] ;
+    ] ;
+  :value 1 ;
+  :value "a" ;
+.
+```
+
+### Detailed Formatting
 
 The following examples are serialized using the default formatting options. (Many are variations on examples in the main [RDF 1.2 Primer](https://www.w3.org/TR/rdf12-primer/).)
 
@@ -154,76 +227,6 @@ wd:Q12418 lio:shows [ a <http://dbpedia.org/resource/Cypress> ] .
       <https://example.org/e>
     ) ;
   :valueList ( 1 "a" [ :value "b" ] ) .
-```
-
-## Formatting Options
-
-There are different style conventions for Turtle/TriG. Gnarly has options to tweak some things to adhere to different preferences.
-
-The default settings are:
-- Indent: 2 spaces
-- Max column: 88 characters
-
-There are three named styles, exemplified here with differences in output:
-
-### Modern
-
-This is the default, described above.
-```turtle
-prefix : <https://example.net/ns/>
-
-<https://example.org/a> a :Thing ;
-  :references <https://example.org/b> ,
-    [ a :Thing ;
-      :name "C" ;
-      :references [
-          :name "D" ;
-          :references [ :name "E" ]
-        ]
-    ] ;
-  :value 1 ,
-    "a" .
-```
-
-### Classic
-
-This form is more compact, but at the expense of readability for deeply nested blank nodes, and/or annotations. It also uses the classic, `@`-sigil for prefix and base, no explicit graph keyword, and no padding space before `;`, `,`, and `.` separators.
-```turtle
-@prefix : <https://example.net/ns/>.
-
-<https://example.org/a> a :Thing;
-  :references <https://example.org/b>,
-    [ a :Thing;
-      :name "C";
-      :references [
-          :name "D";
-          :references [ :name "E" ] ] ];
-  :value 1,
-    "a".
-```
-
-### Longhand
-
-Puts predicates, including types, on new lines, and ends all statement lines with semicolon; ending a subject description with a period on its own line. Uses uppercase SPARQL keywords.
-
-This style is useful for rapid copy&paste editing and line-based diffs:
-```turtle
-PREFIX : <https://example.net/ns/>
-
-<https://example.org/a>
-  a :Thing ;
-  :references <https://example.org/b> ;
-  :references [
-      a :Thing ;
-      :name "C" ;
-      :references [
-          :name "D" ;
-          :references [ :name "E" ] ;
-        ] ;
-    ] ;
-  :value 1 ;
-  :value "a" ;
-.
 ```
 
 ## Maintenance
