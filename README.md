@@ -2,6 +2,8 @@
 
 Gnarly is a pretty-printer for [RDF 1.2](https://www.w3.org/TR/rdf12-concepts/), used for serializing [Turtle](https://www.w3.org/TR/rdf12-turtle/), [TriG](https://www.w3.org/TR/rdf12-trig/), and related RDF syntaxes.
 
+## Turtle/TriG
+
 By default, Turtle/TriG is written with the following features:
 
 - Uses given prefixes to compact IRIs into PNames,
@@ -57,13 +59,9 @@ prefix ctg: <https://example.net/ns/category/>
 
 Gnarly is currently written in [Python](https://www.python.org/) and uses [pyoxigraph](https://pyoxigraph.readthedocs.io/) for parsing RDF.
 
-Command-line use:
+Command-line use (use `-h` for more options):
 
-    $ cat test/data/test-gnarly.trig | python3 -m gnarly.trig
-
-Simple round-trip run of the official RDF turtle/trig tests:
-
-    $ ./test.sh clone/of/w3c/rdf-tests  # from <https://github.com/w3c/rdf-tests>
+    $ gnarly test/data/test-gnarly.trig
 
 ## Detailed Formatting
 
@@ -227,3 +225,10 @@ PREFIX : <https://example.net/ns/>
   :value "a" ;
 .
 ```
+
+## Maintenance
+
+Simple round-trip run of local examples, and (optionally) the official RDF Turtle/TriG tests:
+
+    $ ./test.sh clone/of/w3c/rdf-tests  # from <https://github.com/w3c/rdf-tests>
+
