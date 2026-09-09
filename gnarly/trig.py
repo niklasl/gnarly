@@ -1,20 +1,20 @@
 import re
 from typing import NamedTuple, TextIO
 
-from pyoxigraph import (BlankNode, DefaultGraph, Literal, NamedNode, Quad,
+from pyoxigraph import (BlankNode, Literal, NamedNode as IRI, Quad,
                         RdfFormat, Store, Triple, parse)
 
-from . import (RDF_NIL_NODE, RDF_TYPE_NODE, RDFNS, Description, Frame, List,
-               Node, Statement, Term)
+from . import (RDF_NIL, RDF_TYPE, RDF, Description, Frame, List,
+               SubjectTerm, Statement, Term)
 
-RDF_DIRLANGSTRING_NODE = NamedNode(f"{RDFNS}dirLangString")
-RDF_LANGSTRING_NODE = NamedNode(f"{RDFNS}langString")
-XSDNS = "http://www.w3.org/2001/XMLSchema#"
-XSD_STRING_NODE = NamedNode(f"{XSDNS}string")
-XSD_INTEGER_NODE = NamedNode(f"{XSDNS}integer")
-XSD_DECIMAL_NODE = NamedNode(f"{XSDNS}decimal")
-XSD_DOUBLE_NODE = NamedNode(f"{XSDNS}double")
-XSD_BOOLEAN_NODE = NamedNode(f"{XSDNS}boolean")
+RDF_DIRLANGSTRING = IRI(f"{RDF}dirLangString")
+RDF_LANGSTRING = IRI(f"{RDF}langString")
+XSD = "http://www.w3.org/2001/XMLSchema#"
+XSD_STRING = IRI(f"{XSD}string")
+XSD_INTEGER = IRI(f"{XSD}integer")
+XSD_DECIMAL = IRI(f"{XSD}decimal")
+XSD_DOUBLE = IRI(f"{XSD}double")
+XSD_BOOLEAN = IRI(f"{XSD}boolean")
 
 LEAF_RE = re.compile(r'(.*?)([^#/:]+)$')
 
@@ -85,38 +85,36 @@ class TurtleFormatter:
             v = f'{v[0 : len(v) - 1]}\\"'
         return f'"""{v}"""'
 
-    def to_str(self, n: Description | Term) -> str:
-        if n == RDF_NIL_NODE:
+    def to_str(self, n: Term) -> str:
+        if n == RDF_NIL:
             return '()'
         match n:
-            case Description():
-                return self.to_str(n.subject)
-            case Triple(s, p, o):
-                pr = "a" if p == RDF_TYPE_NODE else self.to_str(p)
-                return f'<<( {self.to_str(s)} {pr} {self.to_str(o)} )>>'
+            case IRI(v):
+                return self.shorten(v)
+            case BlankNode(v):
+                return f'_:{n.value}'
             case Literal(_):
                 v = n.value
-                if n.datatype == RDF_DIRLANGSTRING_NODE:
+                if n.datatype == RDF_DIRLANGSTRING:
                     return f'{self.stringrepr(v)}@{n.language}--{n.direction}'
-                elif n.datatype == RDF_LANGSTRING_NODE:
+                elif n.datatype == RDF_LANGSTRING:
                     return f'{self.stringrepr(v)}@{n.language}'
-                elif n.datatype == XSD_STRING_NODE:
+                elif n.datatype == XSD_STRING:
                     return f'{self.stringrepr(v)}'
-                elif n.datatype == XSD_BOOLEAN_NODE:
+                elif n.datatype == XSD_BOOLEAN:
                     return v
-                elif n.datatype == XSD_INTEGER_NODE:
+                elif n.datatype == XSD_INTEGER:
                     return v
-                elif n.datatype == XSD_DECIMAL_NODE:
+                elif n.datatype == XSD_DECIMAL:
                     return f"{v}.0" if "." not in v else v
-                elif n.datatype == XSD_DOUBLE_NODE:
+                elif n.datatype == XSD_DOUBLE:
                     return v + 'e0'
                 else:
                     v = v.replace('"', r'\"')
                     return f'{self.stringrepr(v)}^^{self.to_str(n.datatype)}'
-            case NamedNode(v):
-                return self.shorten(v)
-            case BlankNode(v):
-                return f'_:{n.value}'
+            case Triple(s, p, o):
+                pr = "a" if p == RDF_TYPE else self.to_str(p)
+                return f'<<( {self.to_str(s)} {pr} {self.to_str(o)} )>>'
 
 
 class TrigSerializer:
@@ -288,7 +286,7 @@ class TrigSerializer:
     def write_statements(self, desc: Description) -> int:
         statements = sorted(desc.get_regular_statements())
 
-        prev_p: NamedNode | None = None
+        prev_p: IRI | None = None
 
         repeat_predicate = self.options.longhand
 
@@ -310,7 +308,7 @@ class TrigSerializer:
                 self.write(self.options.indent)
             else:
                 self._pending_predicate = (
-                    "a" if p == RDF_TYPE_NODE else self.fmt.to_str(p)
+                    "a" if p == RDF_TYPE else self.fmt.to_str(p)
                 )
 
             prev_p = p
@@ -328,7 +326,7 @@ class TrigSerializer:
             self.write_list(stmt.o.list_items)
             return
 
-        o: Description | Term | None
+        o: Term | None
         if isinstance(stmt.o, Description):
             o = stmt.o.subject
             if self.attempt_write_blank(stmt.o):
@@ -344,7 +342,7 @@ class TrigSerializer:
     def write_annotations(self, stmt: Statement) -> None:
         annotations = sorted(
             stmt.get_annotations(),
-            key=lambda x: (isinstance(x.subject, NamedNode), x)
+            key=lambda x: (isinstance(x.subject, IRI), x)
         )
         isnext = (
             len(annotations) > 1
@@ -429,7 +427,10 @@ class TrigSerializer:
         return False
 
     def write_list(self, list_items: List, keeplevel=False):
-        items = [self.fmt.to_str(it) for it in list_items]
+        items = [
+            self.fmt.to_str(it.subject if isinstance(it, Description) else it)
+            for it in list_items
+        ]
         width = 0
         multiline = False
 

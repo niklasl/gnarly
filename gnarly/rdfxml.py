@@ -2,13 +2,13 @@ import re
 from typing import TextIO, cast
 from xml.dom.minidom import Document, Element
 
-from pyoxigraph import (BlankNode, Literal, NamedNode, Quad, RdfFormat, Store,
+from pyoxigraph import (BlankNode, Literal, NamedNode as IRI, Quad, RdfFormat, Store,
                         Triple, parse)
 
-from . import (RDF_NIL_NODE, RDF_TYPE_NODE, RDFNS, Description, Frame, List,
-               Node, Statement, Term)
-from .trig import (RDF_DIRLANGSTRING_NODE, RDF_LANGSTRING_NODE,
-                   XSD_STRING_NODE, XSDNS, TurtleFormatter)
+from . import (RDF_NIL, RDF_TYPE, RDF, Description, Frame, List,
+               SubjectTerm, Statement, Term)
+from .trig import (RDF_DIRLANGSTRING, RDF_LANGSTRING,
+                   XSD_STRING, XSD, TurtleFormatter)
 
 NAME_START_CHAR = fr'(?:[A-Z]|_|[a-z]|[\u00C0-\u00D6]|[\u00D8-\u00F6]|[\u00F8-\u02FF]|[\u0370-\u037D]|[\u037F-\u1FFF]|[\u200C-\u200D]|[\u2070-\u218F]|[\u2C00-\u2FEF]|[\u3001-\uD7FF]|[\uF900-\uFDCF]|[\uFDF0-\uFFFD])'  # Missing: ...|[#x10000-#xEFFFF])
 QNAME_RE = re.compile(
@@ -87,8 +87,8 @@ class RdfXmlSerializer:
         rtypes = sorted(desc.get_simple_types())
         if rtypes:
             rtype = rtypes.pop(0)
-            match rtype.subject:
-                case NamedNode(v):
+            match rtype:
+                case IRI(v):
                     d_elem = self.create_element(doc, v)
                 case _:
                     rtypes.insert(0, rtype)
@@ -98,8 +98,8 @@ class RdfXmlSerializer:
 
         for rtype in rtypes:
             t_elem = doc.createElement("rdf:type")
-            match rtype.subject:
-                case NamedNode(v):
+            match rtype:
+                case IRI(v):
                     self.set_id(t_elem, v, "rdf:resource")
                 case BlankNode(v):
                     self.set_id(t_elem, v, "rdf:nodeID")
@@ -113,7 +113,7 @@ class RdfXmlSerializer:
                 d_elem.appendChild(rp_elem)
 
         match desc.subject:
-            case NamedNode(v):
+            case IRI(v):
                 if self.fmt.base_iri and v.startswith(self.fmt.base_iri):
                     v = v[len(self.fmt.base_iri) :]
                 self.set_id(d_elem, v)
@@ -148,7 +148,7 @@ class RdfXmlSerializer:
                     self.describe(doc.documentElement, annot, True)
 
                 match annot.subject:
-                    case NamedNode(v):
+                    case IRI(v):
                         p_elem.setAttribute("rdf:annotation", v)
                     case BlankNode(v):
                         p_elem.setAttribute("rdf:annotationNodeID", v)
@@ -190,7 +190,7 @@ class RdfXmlSerializer:
             n = n.subject
 
         match n:
-            case NamedNode(v):
+            case IRI(v):
                 self.set_id(p_elem, v, "rdf:resource")
                 return
 
@@ -200,20 +200,20 @@ class RdfXmlSerializer:
 
             case Literal(_):
                 v = n.value
-                if n.datatype == RDF_DIRLANGSTRING_NODE:
+                if n.datatype == RDF_DIRLANGSTRING:
                     self.set_text(p_elem, str(v))
                     if n.language:
                         p_elem.setAttribute("xml:lang", n.language)
                     if n.direction:
                         p_elem.setAttribute("its:dir", n.direction.value)
                     return
-                elif n.datatype == RDF_LANGSTRING_NODE:
+                elif n.datatype == RDF_LANGSTRING:
                     self.set_text(p_elem, v)
                     if n.language:
                         p_elem.setAttribute("xml:lang", n.language)
                     n.language
                     return
-                elif n.datatype == XSD_STRING_NODE:
+                elif n.datatype == XSD_STRING:
                     self.set_text(p_elem, v)
                     return
                 else:
@@ -225,11 +225,11 @@ class RdfXmlSerializer:
                 t_store = Store()
                 t_store.add(Quad(*triple))
                 t_frame = Frame(t_store)
-                t_desc = Description(t_frame, cast(Node, triple.subject))
+                t_desc = Description(t_frame, cast(SubjectTerm, triple.subject))
                 self.describe(p_elem, t_desc)
 
             case _:
-                self.set_id(p_elem, XSDNS + type(n).__name__, "rdf:datatype")
+                self.set_id(p_elem, XSD + type(n).__name__, "rdf:datatype")
                 self.set_text(p_elem, repr(n))
 
     def set_text(self, elem: Element, text: str) -> None:

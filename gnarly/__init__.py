@@ -2,26 +2,20 @@ from __future__ import annotations
 from itertools import chain
 from typing import Iterator, cast
 
-from pyoxigraph import (BlankNode, DefaultGraph, Literal, NamedNode, Quad,
-                        QuerySolutions, Store, Triple)
+from pyoxigraph import (BlankNode, DefaultGraph, Literal, NamedNode as IRI,
+                        Quad, QuerySolutions, Store, Triple)
 
-RDFNS = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#'
-RDF_TYPE = f'{RDFNS}type'
-RDF_REIFIES = f'{RDFNS}reifies'
-RDF_FIRST = f'{RDFNS}first'
-RDF_REST = f'{RDFNS}rest'
-RDF_NIL = f'{RDFNS}nil'
+RDF = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#'
+RDF_TYPE = IRI(f'{RDF}type')
+RDF_REIFIES = IRI(f'{RDF}reifies')
+RDF_FIRST = IRI(f'{RDF}first')
+RDF_REST = IRI(f'{RDF}rest')
+RDF_NIL = IRI(f'{RDF}nil')
 
-RDF_TYPE_NODE = NamedNode(RDF_TYPE)
-RDF_REIFIES_NODE = NamedNode(RDF_REIFIES)
-RDF_FIRST_NODE = NamedNode(RDF_FIRST)
-RDF_REST_NODE = NamedNode(RDF_REST)
-RDF_NIL_NODE = NamedNode(RDF_NIL)
+LIST_PREDICATES = {RDF_FIRST, RDF_REST}
 
-LIST_PREDICATES = {RDF_FIRST_NODE, RDF_REST_NODE}
-
-Node = NamedNode | BlankNode
-Term = Node | Literal | Triple
+SubjectTerm = IRI | BlankNode
+Term = SubjectTerm | Literal | Triple
 
 type List = list[Description | Literal | Triple]
 
@@ -30,16 +24,16 @@ SortKey = tuple[bool, str, int, bool, str]
 
 class Frame:
     store: Store
-    name: Node | DefaultGraph
+    name: SubjectTerm | DefaultGraph
 
-    _cache: dict[Node, Description]
+    _cache: dict[SubjectTerm, Description]
 
-    def __init__(self, store: Store, name: Node | None = None):
+    def __init__(self, store: Store, name: SubjectTerm | None = None):
         self.store = store
         self.name = name or DefaultGraph()
         self._cache = {}
 
-    def get_named_frames(self) -> Iterator[tuple[Node, Frame]]:
+    def get_named_frames(self) -> Iterator[tuple[SubjectTerm, Frame]]:
         for name in self.store.named_graphs():
             yield name, Frame(self.store, name)
 
@@ -57,14 +51,12 @@ class Frame:
             ):
                 yield d
 
-    def _get_description(self, n: Node) -> Description:
-        if n in self._cache:
-            return self._cache[n]
+    def _get_description(self, s: SubjectTerm) -> Description:
+        if s in self._cache:
+            return self._cache[s]
 
-        d = Description(self, n)
-        # cache lists to avoid re-generating them
-        if d.list_items is not None and len(d.list_items) > 8:
-            self._cache[n] = d
+        d = Description(self, s)
+        self._cache[s] = d
 
         return d
 
@@ -75,11 +67,12 @@ class Frame:
         return any(self.store.quads_for_pattern(ts, tp, to, self.name))
 
     def _is_annotated(self, triple: Triple) -> bool:
-        return any(self.store.quads_for_pattern(None, RDF_REIFIES_NODE, triple, self.name))
+        return any(self.store.quads_for_pattern(None, RDF_REIFIES, triple, self.name))
 
-    def _check_blank_cycle(self, s: Node) -> bool:
+    def _check_blank_cycle(self, s: SubjectTerm) -> bool:
         if not isinstance(s, BlankNode):
             return False
+
         referrer: BlankNode | None = s
         while referrer is not None:
             for quad in self.store.quads_for_pattern(None, None, referrer, self.name):
@@ -92,12 +85,13 @@ class Frame:
                     referrer = None
             else:
                 referrer = None
+
         return False
 
 
 class Description:
     frame: Frame
-    subject: Node
+    subject: SubjectTerm
 
     _unreferenced: bool
     _referenced_once: bool
@@ -112,10 +106,10 @@ class Description:
     _only_annotation_name: bool
     _only_annotates_one: bool
 
-    _reif_s: Node | None
+    _reif_s: SubjectTerm | None
     _key: SortKey
 
-    def __init__(self, frame: Frame, s: Node):
+    def __init__(self, frame: Frame, s: SubjectTerm):
         self.frame = frame
         self.subject = s
         self._check_references()
@@ -151,12 +145,12 @@ class Description:
 
         annot_count = 0
         reifies_count = 0
-        for triple in self._get_objects(RDF_REIFIES_NODE):
+        for triple in self._get_objects(RDF_REIFIES):
             if not isinstance(triple, Triple):
                 continue
 
             if reifies_count == 0:
-                self._reif_s = cast(Node, triple.subject)
+                self._reif_s = cast(SubjectTerm, triple.subject)
 
             reifies_count += 1
 
@@ -174,13 +168,13 @@ class Description:
             for quad in self.frame.store.quads_for_pattern(
                 self.subject, None, None, self.frame.name
             )
-            if quad.predicate != RDF_REIFIES_NODE
+            if quad.predicate != RDF_REIFIES
         )
         self._only_annotates_one = self._only_annotates and annot_count == 1
 
     def _collect_list_items(self) -> List | None:
         first = None
-        for o in self._get_objects(RDF_FIRST_NODE):
+        for o in self._get_objects(RDF_FIRST):
             if first is not None:
                 return None
             first = o
@@ -188,14 +182,14 @@ class Description:
             return None
 
         rest: List | None = None
-        for ro in self._get_objects(RDF_REST_NODE):
+        for ro in self._get_objects(RDF_REST):
             if rest is not None:
                 return None
 
             if not isinstance(ro, Description):
                 return None
 
-            if ro.subject == RDF_NIL_NODE:
+            if ro.subject == RDF_NIL:
                 rest = [first]
             elif isinstance(ro.subject, BlankNode) and ro.list_items is not None:
                 rest = [first] + ro.list_items
@@ -233,52 +227,52 @@ class Description:
                 return True
         return False
 
-    def _triples(self, p: NamedNode | None = None) -> Iterator[Triple]:
+    def _triples(self, p: IRI | None = None) -> Iterator[Triple]:
         for quad in self.frame.store.quads_for_pattern(
             self.subject, p, None, self.frame.name
         ):
             yield quad.triple
 
-    def _get_objects(self, p: NamedNode) -> Iterator[Description | Literal | Triple]:
+    def _get_objects(self, p: IRI) -> Iterator[Description | Literal | Triple]:
         for triple in self._triples(p):
-            if isinstance(triple.object, Node):
-                yield self.frame._get_description(cast(Node, triple.object))
+            if isinstance(triple.object, SubjectTerm):
+                yield self.frame._get_description(cast(SubjectTerm, triple.object))
             else:
                 yield triple.object
 
-    def get_simple_types(self) -> Iterator[Description]:
-        for triple in self._triples(RDF_TYPE_NODE):
-            if isinstance(triple.object, NamedNode) and not self.frame._is_annotated(
+    def get_simple_types(self) -> Iterator[IRI]:
+        for triple in self._triples(RDF_TYPE):
+            if isinstance(triple.object, IRI) and not self.frame._is_annotated(
                 triple
             ):
-                yield self.frame._get_description(triple.object)
+                yield triple.object
 
     def get_reifies(self) -> Iterator[Triple]:
-        for triple in self._triples(RDF_REIFIES_NODE):
+        for triple in self._triples(RDF_REIFIES):
             if isinstance(triple.object, Triple):
                 if not self.frame._is_asserted(triple.object):
                     yield triple.object
 
-    def get_regular_statements(self) -> Iterator[tuple[NamedNode, Statement]]:
+    def get_regular_statements(self) -> Iterator[tuple[IRI, Statement]]:
         for triple in self._triples(None):
             if self.list_items is not None:
                 if triple.predicate in LIST_PREDICATES:
                     continue
 
             is_plain_rdftype = (
-                triple.predicate == RDF_TYPE_NODE
-                and isinstance(triple.object, NamedNode)
+                triple.predicate == RDF_TYPE
+                and isinstance(triple.object, IRI)
                 and not self.frame._is_annotated(triple)
             )
             is_plain_reifies = (
-                triple.predicate == RDF_REIFIES_NODE
+                triple.predicate == RDF_REIFIES
                 and isinstance(triple.object, Triple)
                 and not self.frame._is_annotated(triple)
             )
             if not is_plain_rdftype and not is_plain_reifies:
                 o = (
                     self.frame._get_description(triple.object)
-                    if isinstance(triple.object, Node)
+                    if isinstance(triple.object, SubjectTerm)
                     else triple.object
                 )
                 stmt = Statement(self, triple, o)
@@ -290,7 +284,7 @@ class Description:
 
 class Statement:
     s: Description
-    p: NamedNode
+    p: IRI
     o: Description | Literal | Triple
     _triple: Triple
     _key: SortKey
@@ -304,16 +298,16 @@ class Statement:
 
     def get_annotations(self) -> Iterator[Description]:
         for quad in self.s.frame.store.quads_for_pattern(
-            None, RDF_REIFIES_NODE, self._triple, self.s.frame.name
+            None, RDF_REIFIES, self._triple, self.s.frame.name
         ):
-            yield self.s.frame._get_description(cast(Node, quad.subject))
+            yield self.s.frame._get_description(cast(SubjectTerm, quad.subject))
 
     def __lt__(self, other: Statement) -> bool:
         return self._key < other._key
 
 
-def make_sort_key(term: Term, reifies_s: Node | None = None) -> SortKey:
-    isblank = isinstance(term, BlankNode) or term == RDF_NIL_NODE
+def make_sort_key(term: Term, reifies_s: SubjectTerm | None = None) -> SortKey:
+    isblank = isinstance(term, BlankNode) or term == RDF_NIL
     s1: tuple[bool, str] = (isblank, str(term) if isinstance(term, Triple) else term.value)
     s2: tuple[bool, str, int] = (
         (isinstance(reifies_s, BlankNode), reifies_s.value) + (1,)
