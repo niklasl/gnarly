@@ -242,20 +242,3 @@ class RdfXmlSerializer:
     def set_text(self, elem: Element, text: str) -> None:
         assert elem.ownerDocument is not None
         elem.appendChild(elem.ownerDocument.createTextNode(text))
-
-
-def main() -> None:
-    import sys
-
-    store = Store()
-    reader = parse(sys.stdin.buffer, format=RdfFormat.TRIG)
-    store.bulk_extend(reader)
-
-    serializer = RdfXmlSerializer(
-        sys.stdout, prefixes=reader.prefixes, base_iri=reader.base_iri
-    )
-    serializer.serialize(store)
-
-
-if __name__ == '__main__':
-    main()

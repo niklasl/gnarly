@@ -520,18 +520,6 @@ class TrigSerializer:
         self._linewidth = 0
 
 
-def pretty_print_trig(
-    store: Store,
-    out: TextIO,
-    prefixes: dict,
-    base_iri: str | None = None,
-    options: TrigFormatOptions | None = None,
-) -> None:
-    frame = Frame(store)
-    serializer = TrigSerializer(out, prefixes, base_iri, options)
-    serializer.serialize(frame)
-
-
 def get_options(indent, max_width, style) -> TrigFormatOptions:
     keyword_style = {
         "modern": LCASE_KEYWORDS,
@@ -550,54 +538,3 @@ def get_options(indent, max_width, style) -> TrigFormatOptions:
         compact_delims=style == 'classic',
         longhand=style == 'longhand',
     )
-
-
-def main() -> None:
-    import argparse
-    import sys
-    from pathlib import Path
-
-    def indent_char(s: str):
-        if s == 't':
-            return '\t'
-        if s.isdecimal():
-            return ' ' * int(s)
-        raise argparse.ArgumentTypeError(
-            f"Invalid indent value: `{s}` (must be a number or `t`)"
-        )
-
-    argp = argparse.ArgumentParser()
-    argp.add_argument('-I', '--indent', type=indent_char, default='2')
-    argp.add_argument('-M', '--max-width', type=int, default=88)
-    argp.add_argument('-S', '--style')
-    argp.add_argument('sources', metavar='SOURCE', nargs='*')
-    args = argp.parse_args()
-
-    options = get_options(args.indent, args.max_width, args.style or "modern")
-
-    store = Store()
-    base_iri: str | None = None
-    prefixes: dict[str, str] = {}
-
-    for fpath in args.sources:
-        if fpath == '-':
-            reader = parse(sys.stdin.buffer, format=RdfFormat.TRIG)
-        else:
-            file_iri = Path(fpath).absolute().as_uri()
-            reader = parse(path=fpath, base_iri=file_iri)
-            if not base_iri:
-                base_iri = file_iri
-        store.bulk_extend(reader)
-        prefixes |= reader.prefixes
-
-    if not args.sources:
-        reader = parse(sys.stdin.buffer, format=RdfFormat.TRIG)
-        store.bulk_extend(reader)
-        base_iri = reader.base_iri
-        prefixes |= reader.prefixes
-
-    pretty_print_trig(store, sys.stdout, prefixes, base_iri, options)
-
-
-if __name__ == '__main__':
-    main()
