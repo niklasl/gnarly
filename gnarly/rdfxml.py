@@ -15,6 +15,8 @@ QNAME_RE = re.compile(
     fr'({NAME_START_CHAR}(?:{NAME_START_CHAR}|-|\.|[0-9]|\u00B7|[\u0300-\u036F]|[\u203F-\u2040])*)$'
 )
 
+ITS = "http://www.w3.org/2005/11/its"
+
 
 class RdfXmlSerializer:
 
@@ -41,26 +43,31 @@ class RdfXmlSerializer:
         print(doc.toprettyxml(indent="  "), end='', file=self.out)
 
     def declare_prelude(self, elem: Element) -> None:
+        required_prefixes = {
+            'rdf': RDF,
+            'its': ITS,
+        }
         has_rdf_pfx = False
 
         if b := self.fmt.base_iri:
             elem.setAttribute("xml:base", b)
 
         for key, dfn in self.fmt.prefixes.items():
-            if key == "rdf":
-                if dfn != RDFNS:
+            if key in required_prefixes:
+                expected = required_prefixes.pop(key)
+                if dfn != expected:
                     # TODO: use generated new prefix instead!
                     raise ValueError(
-                        f"The rdf prefix must be bound to <{RDFNS}>, not <{dfn}>"
+                        f"The {key} prefix must be bound to <{expected}>, not <{dfn}>"
                     )
-                has_rdf_pfx = True
+
             if key:
                 elem.setAttributeNS("xmlns", f"xmlns:{key}", dfn)
             else:
                 elem.setAttributeNS("xmlns", "xmlns", dfn)
 
-        if not has_rdf_pfx:
-            elem.setAttributeNS("xmlns", f"xmlns:rdf", RDFNS)
+        for pfx, iri in required_prefixes.items():
+            elem.setAttributeNS("xmlns", f"xmlns:{pfx}", iri)
 
     def create_element(self, doc: Document, v: str) -> Element:
         m = QNAME_RE.search(v)
