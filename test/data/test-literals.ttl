@@ -1,0 +1,16 @@
+PREFIX : <http://example.net/ns/>
+BASE <https://example.org/>
+
+<a> a :Document ;
+  :content """
+    # The Title
+
+    Some text.
+    """ ,
+    """
+    \"""" ,
+    """
+    "\""
+    ""\"
+    \"""" ;
+    :note "color"@en, "colour"@en-gb, "XYZ"@en-gb--ltr, "XYZ"@und--rtl .

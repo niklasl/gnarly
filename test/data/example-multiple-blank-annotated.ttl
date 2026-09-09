@@ -1,0 +1,69 @@
+PREFIX dcterms: <http://purl.org/dc/terms/>
+PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+PREFIX prov: <http://www.w3.org/ns/prov#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX schema: <http://schema.org/>
+PREFIX wd: <http://www.wikidata.org/entity/>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+<http://a.example.org/bob#me> a foaf:Person ;
+  schema:birthDate "1990-07-04"^^xsd:date ;
+  foaf:knows <http://example.org/alice#me> ;
+  foaf:topic_interest wd:Q12418
+      {| a rdf:Statement ;
+        dcterms:creator <http://example.org/alice#me> ;
+        dcterms:date "2004-01-12"^^xsd:date
+      |}
+      {| a prov:Influence ;
+        dcterms:date "1998-10-04"^^xsd:date
+      |} .
+
+<http://b.example.org/bob#me> a foaf:Person ;
+  schema:birthDate "1990-07-04"^^xsd:date ;
+  foaf:knows <http://example.org/alice#me> ;
+  foaf:topic_interest wd:Q12418 {| a prov:Influence ;
+        dcterms:date "1998-10-04"^^xsd:date
+      |} ,
+    wd:Q215486 {| a rdf:Statement ;
+        dcterms:creator <http://example.org/alice#me> ;
+        dcterms:date "2004-01-12"^^xsd:date
+      |} .
+
+<http://c.example.org/bob#me> a foaf:Person ;
+  schema:birthDate "1990-07-04"^^xsd:date ;
+  foaf:knows <http://example.org/alice#me> ;
+  foaf:topic_interest [ schema:sameAs wd:Q12418 ] {| a rdf:Statement ;
+        dcterms:creator <http://example.org/alice#me> ;
+        dcterms:date "2004-01-12"^^xsd:date
+      |} ,
+    [ schema:sameAs wd:Q12418 ] {| a prov:Influence ;
+        dcterms:date "1998-10-04"^^xsd:date
+      |} .
+
+<http://d.example.org/bob#me> a foaf:Person ;
+  schema:birthDate "1990-07-04"^^xsd:date ;
+  foaf:knows <http://example.org/alice#me> ;
+  foaf:topic_interest wd:Q12418 ~ <http://example.org/alice#claim-1> .
+
+<http://e.example.org/bob#me> a foaf:Person ;
+  schema:birthDate "1990-07-04"^^xsd:date ;
+  foaf:knows <http://example.org/alice#me> ;
+  foaf:topic_interest wd:Q12418
+      ~ <http://example.org/alice#claim-1>
+      ~ <http://example.org/bob#interest-1> .
+
+<http://f.example.org/bob#me> a foaf:Person ;
+  foaf:topic_interest wd:Q12418 {| dcterms:date "1998-10-04"^^xsd:date |} .
+
+<http://g.example.org/bob#me> a foaf:Person ;
+  foaf:topic_interest wd:Q12418
+      {| dcterms:date "1998-10-04"^^xsd:date |}
+      ~ _:n .
+
+<http://h.example.org/bob#me> a foaf:Person ;
+  foaf:topic_interest wd:Q12418
+      {| dcterms:date "1998-10-04"^^xsd:date |}
+      ~ <http://example.org/a> .
+
+<http://i.example.org/bob#me> a foaf:Person ;
+  foaf:topic_interest wd:Q12418 ~ <http://example.org/a> ~ _:n .

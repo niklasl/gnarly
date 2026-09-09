@@ -3,8 +3,9 @@ from io import StringIO
 from pathlib import Path
 from typing import IO, cast
 
+from gnarly import Frame
 from gnarly.rq import rdf_to_sparql_ask
-from gnarly.trig import pretty_print_trig
+from gnarly.trig import TrigSerializer
 from pyoxigraph import QueryBoolean, RdfFormat, Store, parse
 
 
@@ -23,7 +24,8 @@ def test_roundtrip(fpath: str) -> tuple[bool, bool]:
     print(f"Checking {fpath}  ({read1_count} triples)", end=": ")
 
     buffer = StringIO()
-    pretty_print_trig(store1, buffer, prefixes=prefixes, base_iri=None)
+    frame = Frame(store1)
+    TrigSerializer(buffer, prefixes=prefixes, base_iri=None).serialize(frame)
 
     buffer.seek(0)
     store2, _ = load_data(buffer)
@@ -87,8 +89,11 @@ def main() -> None:
     print(
         f"Done checking {checked} files ({okish}, {error} errors; {skipped} skipped)."
     )
+
     if not mismatch and not mismatch and not error:
         print("All tests passed!")
+    else:
+        sys.exit(1)
 
 
 if __name__ == '__main__':
