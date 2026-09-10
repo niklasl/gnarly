@@ -1,4 +1,5 @@
 import argparse
+import re
 import sys
 from pathlib import Path
 
@@ -44,12 +45,12 @@ def main() -> None:
         if fpath == '-':
             reader = parse(sys.stdin.buffer, format=format)
         else:
-            file_iri = Path(fpath).absolute().as_uri()
+            file_iri = to_absolute_iri(fpath)
             reader = parse(path=fpath, base_iri=file_iri)
             if not base_iri and args.base_iri is True:
                 base_iri = file_iri
         store.bulk_extend(reader)
-        if reader.base_iri is not None:
+        if reader.base_iri is not None and args.base_iri:
             base_iri = reader.base_iri
         prefixes |= reader.prefixes
 
@@ -67,7 +68,7 @@ def main() -> None:
         store.extend(dataset)
 
     if isinstance(args.base_iri, str):
-        base_iri = args.base_iri
+        base_iri = to_absolute_iri(args.base_iri)
 
     if args.output_format in {'rdf', 'rdfxml', 'xml'}:
         from .rdfxml import RdfXmlSerializer
@@ -78,7 +79,7 @@ def main() -> None:
         import json
         from .jsonld import JsonLdBuilder
 
-        builder = JsonLdBuilder(prefixes=prefixes, base_iri=reader.base_iri)
+        builder = JsonLdBuilder(prefixes=prefixes, base_iri=base_iri)
         data = builder.to_data(Frame(store))
         json.dump(data, sys.stdout, indent=2)
 
@@ -111,6 +112,14 @@ def indent_char(s: str):
     raise argparse.ArgumentTypeError(
         f"Invalid indent value: `{s}` (must be a number or `t`)"
     )
+
+
+def to_absolute_iri(s: str) -> str:
+    if re.match(r'^[A-Za-z][A-Za-z0-9+.-]*:', s):
+        return s
+
+    path = Path(s)
+    return path.absolute().as_uri()
 
 
 if __name__ == '__main__':
