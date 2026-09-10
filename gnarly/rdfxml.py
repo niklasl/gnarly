@@ -188,7 +188,8 @@ class RdfXmlSerializer:
                         else:
                             d_elem = doc.createElement("rdf:Description")
                             p_elem.appendChild(d_elem)
-                            self.describe_object(d_elem, item)
+                            attr = "rdf:about" if isinstance(item.subject, IRI) else "rdf:nodeID"
+                            self.set_id(d_elem, item.subject.value, attr)
                 return
             elif n.is_embeddable() and not force_ref:
                 self.describe(p_elem, n)
