@@ -25,6 +25,10 @@ class RdfXmlSerializer:
         self.out = out
 
     def serialize(self, store: Store) -> None:
+        doc = self.to_document(store)
+        print(doc.toprettyxml(indent="  "), end='', file=self.out)
+
+    def to_document(self, store: Store) -> Document:
         doc = Document()
 
         root = doc.createElement('rdf:RDF')
@@ -40,14 +44,13 @@ class RdfXmlSerializer:
                 desc.list_items = None
             self.describe(root, desc)
 
-        print(doc.toprettyxml(indent="  "), end='', file=self.out)
+        return doc
 
     def declare_prelude(self, elem: Element) -> None:
         required_prefixes = {
             'rdf': RDF,
             'its': ITS,
         }
-        has_rdf_pfx = False
 
         if b := self.fmt.base_iri:
             elem.setAttribute("xml:base", b)
