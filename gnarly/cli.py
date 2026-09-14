@@ -5,8 +5,6 @@ from pathlib import Path
 
 from pyoxigraph import RdfFormat, Store, Triple, parse
 
-from . import Frame
-
 
 def main() -> None:
 
@@ -49,9 +47,12 @@ def main() -> None:
             reader = parse(path=fpath, base_iri=file_iri)
             if not base_iri and args.base_iri is True:
                 base_iri = file_iri
+
         store.bulk_extend(reader)
-        if reader.base_iri is not None and args.base_iri:
+
+        if reader.base_iri is not None and args.base_iri is True:
             base_iri = reader.base_iri
+
         prefixes |= reader.prefixes
 
     if not args.sources:
@@ -73,14 +74,14 @@ def main() -> None:
     if args.output_format in {'rdf', 'rdfxml', 'xml'}:
         from .rdfxml import RdfXmlSerializer
 
-        RdfXmlSerializer(sys.stdout, prefixes, base_iri).serialize(store)
+        RdfXmlSerializer(prefixes, base_iri).serialize(store, sys.stdout)
 
     elif args.output_format in {'jsonld', 'json-ld', 'json'}:
         import json
         from .jsonld import JsonLdBuilder
 
         builder = JsonLdBuilder(prefixes=prefixes, base_iri=base_iri)
-        data = builder.to_data(Frame(store))
+        data = builder.to_data(store)
         json.dump(data, sys.stdout, indent=2)
 
     elif args.output_format in {'trig', 'ttl', 'turtle'}:
@@ -90,7 +91,7 @@ def main() -> None:
 
         TrigSerializer(
             sys.stdout, prefixes, base_iri, options=options
-        ).serialize(Frame(store))
+        ).serialize(store)
 
     else:
         from pyoxigraph import serialize

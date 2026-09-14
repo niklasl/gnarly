@@ -174,11 +174,12 @@ class TrigSerializer:
     def _update_indent(self):
         self._indent = self.options.indent * self._level
 
-    def serialize(self, frame: Frame) -> None:
+    def serialize(self, store: Store) -> None:
         self.write_prelude()
-        self.write_dataset(frame)
+        self.write_dataset(store)
 
-    def write_dataset(self, frame: Frame) -> None:
+    def write_dataset(self, store: Store) -> None:
+        frame = Frame(store)
         self.serialize_graph(frame)
         named_frames = sorted(
             (self.fmt.to_str(name), frame)

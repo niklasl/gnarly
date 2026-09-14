@@ -3,7 +3,6 @@ from io import StringIO
 from pathlib import Path
 from typing import IO, cast
 
-from gnarly import Frame
 from gnarly.rq import rdf_to_sparql_ask
 from gnarly.trig import TrigSerializer
 from pyoxigraph import QueryBoolean, RdfFormat, Store, parse
@@ -24,8 +23,7 @@ def test_roundtrip(fpath: str) -> tuple[bool, bool]:
     print(f"Checking {fpath}  ({read1_count} triples)", end=": ")
 
     buffer = StringIO()
-    frame = Frame(store1)
-    TrigSerializer(buffer, prefixes=prefixes, base_iri=None).serialize(frame)
+    TrigSerializer(buffer, prefixes=prefixes, base_iri=None).serialize(store1)
 
     buffer.seek(0)
     store2, _ = load_data(buffer)

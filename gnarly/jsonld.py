@@ -22,7 +22,8 @@ class JsonLdBuilder:
     def __init__(self, prefixes: dict, base_iri: str | None = None):
         self.fmt = JsonLdFormatter(prefixes, base_iri)
 
-    def to_data(self, frame: Frame) -> dict:
+    def to_data(self, store: Store) -> dict:
+        frame = Frame(store)
         data = {
             "@context": self.to_context(),
             "@graph": self.to_graph(frame) + self.to_named(frame),

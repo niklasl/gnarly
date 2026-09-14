@@ -20,13 +20,12 @@ ITS = "http://www.w3.org/2005/11/its"
 
 class RdfXmlSerializer:
 
-    def __init__(self, out: TextIO, prefixes: dict, base_iri: str | None = None):
+    def __init__(self, prefixes: dict, base_iri: str | None = None):
         self.fmt = TurtleFormatter(prefixes, base_iri)
-        self.out = out
 
-    def serialize(self, store: Store) -> None:
+    def serialize(self, store: Store, out: TextIO) -> None:
         doc = self.to_document(store)
-        print(doc.toprettyxml(indent="  "), end='', file=self.out)
+        print(doc.toprettyxml(indent="  "), end='', file=out)
 
     def to_document(self, store: Store) -> Document:
         doc = Document()
