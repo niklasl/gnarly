@@ -41,7 +41,8 @@ class JsonLdBuilder:
     def to_graph(self, frame: Frame) -> list:
         graphs = []
 
-        for desc in frame.get_descriptions():
+        descriptions = frame.get_descriptions()
+        for desc in sorted(descriptions):
             graphs.append(self.describe(desc))
 
         return graphs
