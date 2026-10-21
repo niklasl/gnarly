@@ -209,6 +209,8 @@ class Description:
             return False
         if self._reifies or self._only_annotation_name:
             return False
+        if self._annotates and not self._unreferenced:
+            return False
         return self._referenced_once and not self._has_blank_cycle()
 
     def is_embeddable_annotation(self) -> bool:
