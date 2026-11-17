@@ -44,11 +44,7 @@ class Frame:
         for row in cast(QuerySolutions, results):
             s = row['s']
             d = self._get_description(s)
-            if (
-                not d.is_embeddable()
-                and not d.is_embeddable_annotation()
-                and not d._only_annotation_name
-            ):
+            if d.is_subject():
                 yield d
 
     def _get_description(self, s: SubjectTerm) -> Description:
@@ -201,6 +197,13 @@ class Description:
                 rest = [first] + ro.list_items
 
         return rest
+
+    def is_subject(self) -> bool:
+        return (
+            not self.is_embeddable()
+            and not self.is_embeddable_annotation()
+            and not self._only_annotation_name
+        )
 
     def is_pure_blank(self) -> bool:
         return (
