@@ -173,6 +173,9 @@ class Description:
         self._only_annotates_one = self._only_annotates and annot_count == 1
 
     def _collect_list_items(self) -> List | None:
+        if not self._referenced_once:
+            return None
+
         first = None
         for o in self._get_objects(RDF_FIRST):
             if first is not None:
@@ -187,6 +190,9 @@ class Description:
                 return None
 
             if not isinstance(ro, Description):
+                return None
+
+            if not ro._referenced_once:
                 return None
 
             if ro.subject == RDF_NIL:
