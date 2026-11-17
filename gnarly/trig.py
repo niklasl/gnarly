@@ -212,10 +212,8 @@ class TrigSerializer:
 
         reifies = list(desc.get_reifies())
         if len(reifies) > 0:
-            if desc.is_pure_blank():
-                rs = ""
-            else:
-                rs = f"~ {s_str}{self._padspace}"
+            rs = "" if desc.is_pure_blank() else f"~ {s_str}{self._padspace}"
+
             if len(reifies) > 1:
                 for triple in reifies:
                     ts, tp, to = triple
@@ -232,7 +230,11 @@ class TrigSerializer:
             self.write_list(desc.list_items, keeplevel=True)
             s_str = ""
 
+        if (not reifies or len(reifies) > 1) and not desc.has_statements():
+            return
+
         self.write_opt_predicate(s_str)
+
         self.indent()
         multiple = self.write_description_body(desc)
 

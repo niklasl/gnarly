@@ -221,6 +221,13 @@ class Description:
             and (any(self.get_simple_types()) or any(self.get_regular_statements()))
         )
 
+    def has_statements(self) -> bool:
+        for _ in self.get_simple_types():
+            return True
+        for _ in self.get_regular_statements():
+            return True
+        return False
+
     def has_multiple_statements(self) -> bool:
         for i, _ in enumerate(
             chain(self.get_simple_types(), self.get_regular_statements())
