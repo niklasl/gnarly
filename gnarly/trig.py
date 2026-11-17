@@ -112,9 +112,13 @@ class TurtleFormatter:
                 else:
                     v = v.replace('"', r'\"')
                     return f'{self.stringrepr(v)}^^{self.to_str(n.datatype)}'
-            case Triple(s, p, o):
-                pr = "a" if p == RDF_TYPE else self.to_str(p)
-                return f'<<( {self.to_str(s)} {pr} {self.to_str(o)} )>>'
+            case Triple(_):
+                return f'<<( {self.to_triple_str(n)} )>>'
+
+    def to_triple_str(self, triple: Triple) -> str:
+        s, p, o = triple
+        pr = "a" if p == RDF_TYPE else self.to_str(p)
+        return f'{self.to_str(s)} {pr} {self.to_str(o)}'
 
 
 class TrigSerializer:
@@ -216,13 +220,12 @@ class TrigSerializer:
 
             if len(reifies) > 1:
                 for triple in reifies:
-                    ts, tp, to = triple
-                    trpl_s = self.fmt.to_str(triple)[3:-3]
+                    trpl_s = self.fmt.to_triple_str(triple)
                     self.write_indent()
-                    self.write_line(f'<<{trpl_s}{rs}>>{self._padspace}.')
+                    self.write_line(f'<< {trpl_s} {rs}>>{self._padspace}.')
             else:
-                trpl_s = self.fmt.to_str(reifies[0])[3:-3]
-                s_str = f'<<{trpl_s}{rs}>>'
+                trpl_s = self.fmt.to_triple_str(reifies[0])
+                s_str = f'<< {trpl_s} {rs}>>'
 
         self.write_indent()
 
@@ -331,8 +334,15 @@ class TrigSerializer:
 
         o: Term | None
         if isinstance(stmt.o, Description):
-            o = stmt.o.subject
-            if self.attempt_write_blank(stmt.o):
+            desc = stmt.o
+            o = desc.subject
+            if desc.is_reifying_object():
+                o = None
+                for reified in desc.get_reifies():
+                    trpl_s = self.fmt.to_triple_str(reified)
+                    self.write_opt_predicate(f'<< {trpl_s} >>')
+                    break
+            elif self.attempt_write_blank(stmt.o):
                 o = None
         else:
             o = stmt.o

@@ -193,6 +193,9 @@ class RdfXmlSerializer:
                             attr = "rdf:about" if isinstance(item.subject, IRI) else "rdf:nodeID"
                             self.set_id(d_elem, item.subject.value, attr)
                 return
+            elif n.is_reifying_object():
+                self.describe(p_elem, n)
+                return
             elif n.is_embeddable() and not force_ref:
                 self.describe(p_elem, n)
                 return

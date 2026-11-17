@@ -76,7 +76,11 @@ class JsonLdBuilder:
             ]
         reifies = list(desc.get_reifies())
 
-        if not (desc.is_embeddable() or desc.is_embeddable_annotation()):
+        if (
+            not desc.is_embeddable()
+            and not desc.is_reifying_object()
+            and not desc.is_embeddable_annotation()
+        ):
             node["@id"] = self._to_id(desc.subject)
 
         if reifies:
@@ -113,7 +117,7 @@ class JsonLdBuilder:
             case Description():
                 if o.list_items:
                     return {"@list": [self.describe_object(it) for it in o.list_items]}
-                if o.is_embeddable():
+                if o.is_embeddable() or o.is_reifying_object():
                     return self.describe(o)
                 else:
                     return self.describe_object(o.subject)

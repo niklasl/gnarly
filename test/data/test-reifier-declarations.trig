@@ -1,0 +1,30 @@
+prefix : <http://example.org/ns/>
+base <http://example.net/>
+
+<g1> {
+
+  << <Investigator> :finds <clue_1> ~ <discovery_1> >> a :Change .
+
+}
+
+<g2> {
+
+  << <Investigator> :finds <clue_1> ~ <discovery_1> >> .
+
+}
+
+<g3> {
+
+  << <Investigator> :finds <clue_1> ~ <discovery_1> >> a :Change .
+  << <Investigator> :carries <clue_1> ~ <discovery_1> >> .
+  << <objective_1> :clue <clue_1> ~ <discovery_1> >> .
+
+}
+
+<g4> {
+
+  << <Investigator> :finds <clue_1> ~ <discovery_1> >> .
+  << <Investigator> :carries <clue_1> ~ <discovery_1> >> .
+  << <objective_1> :clue <clue_1> ~ <discovery_1> >> .
+
+}

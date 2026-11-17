@@ -1,0 +1,8 @@
+prefix : <http://example.org/ns/>
+base <http://example.net/>
+
+<< <Investigator> :finds <clue_1> ~ <discovery_1> >> a :Change ;
+  :at "2026-11-17T22:59:12+0100"^^:DateTime ;
+  :changeFrom << <storage_room> :contains <clue_1> >> ;
+  :changeTo << <Investigator> :carries <clue_1> >> ,
+    << <objective_1> :clue <clue_1> >> .

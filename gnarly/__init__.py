@@ -202,6 +202,7 @@ class Description:
         return (
             not self.is_embeddable()
             and not self.is_embeddable_annotation()
+            and not self.is_reifying_object()
             and not self._only_annotation_name
         )
 
@@ -219,6 +220,15 @@ class Description:
         if self._reifies or self._only_annotation_name:
             return False
         if self._annotates and not self._unreferenced:
+            return False
+        return self._referenced_once and not self._has_blank_cycle()
+
+    def is_reifying_object(self) -> bool:
+        if not self._reifies or self._reifies_multiple:
+            return False
+        if not isinstance(self.subject, BlankNode):
+            return False
+        if self._annotates:
             return False
         return self._referenced_once and not self._has_blank_cycle()
 
