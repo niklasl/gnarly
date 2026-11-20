@@ -122,6 +122,10 @@ class Description:
             if i > 1:
                 break
             i += 1
+
+        if any(self.frame.store.quads_for_pattern(None, None, None, self.subject)):
+            i += 1
+
         self._unreferenced = i == 0
         self._referenced_once = i == 1
 

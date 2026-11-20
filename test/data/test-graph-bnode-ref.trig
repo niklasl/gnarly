@@ -1,0 +1,13 @@
+prefix : <http://example.org/>
+
+graph :meta {
+
+  :doc :hasGraph _:g .
+
+}
+
+graph _:g {
+
+  :s :p :o .
+
+}
