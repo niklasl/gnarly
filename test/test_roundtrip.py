@@ -5,7 +5,8 @@ from typing import IO, cast
 
 from gnarly.rq import rdf_to_sparql_ask
 from gnarly.trig import TrigSerializer
-from pyoxigraph import QueryBoolean, RdfFormat, Store, parse
+from pyoxigraph import (BlankNode, CanonicalizationAlgorithm, Dataset,
+                        QueryBoolean, RdfFormat, Store, parse)
 
 
 def load_data(source: IO, base_iri=None) -> tuple[Store, dict]:
@@ -19,6 +20,7 @@ def test_roundtrip(fpath: str) -> tuple[bool, bool]:
     path = Path(fpath)
     with path.open() as f:
         store1, prefixes = load_data(f, path.absolute().as_uri())
+
     read1_count = len(store1)
     print(f"Checking {fpath}  ({read1_count} triples)", end=": ")
 
@@ -32,13 +34,11 @@ def test_roundtrip(fpath: str) -> tuple[bool, bool]:
     count_ok = read2_count == read1_count
     matches = False
     if count_ok:
-        ask_buffer = StringIO()
-        rdf_to_sparql_ask(store2, ask_buffer, prefixes=prefixes)
-        ask_query = ask_buffer.getvalue()
-        try:
-            matches = bool(cast(QueryBoolean, store1.query(ask_query)))
-        except SyntaxError as e:
-            pass
+        dataset1 = Dataset(store1)
+        dataset1.canonicalize(CanonicalizationAlgorithm.RDFC_1_0)
+        dataset2 = Dataset(store2)
+        dataset2.canonicalize(CanonicalizationAlgorithm.RDFC_1_0)
+        matches = dataset1 == dataset2
 
     if count_ok and matches:
         print(f"Round-trip OK")
