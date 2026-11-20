@@ -69,18 +69,21 @@ class Frame:
         if not isinstance(s, BlankNode):
             return False
 
-        referrer: BlankNode | None = s
-        while referrer is not None:
-            for quad in self.store.quads_for_pattern(None, None, referrer, self.name):
-                if isinstance(quad.subject, BlankNode):
-                    if quad.subject == s:
-                        return True
-                    referrer = quad.subject
-                    break
-                else:
-                    referrer = None
-            else:
-                referrer = None
+        return self._detect_cycle(s, s, set())
+
+    def _detect_cycle(self, b: BlankNode, via: BlankNode, seen: set[BlankNode]) -> bool:
+        if via in seen:
+            return False
+
+        seen.add(via)
+
+        for quad in self.store.quads_for_pattern(None, None, via, self.name):
+            if isinstance(quad.subject, BlankNode):
+                if quad.subject == b:
+                    return True
+
+                if self._detect_cycle(b, quad.subject, seen):
+                    return True
 
         return False
 

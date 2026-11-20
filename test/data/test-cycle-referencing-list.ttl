@@ -1,0 +1,7 @@
+_:x <http://example.org/p> _:y .
+_:y <http://example.org/p> _:x .
+_:x <http://example.org/p> _:l1 .
+_:l1 <http://www.w3.org/1999/02/22-rdf-syntax-ns#first> "a" .
+_:l1 <http://www.w3.org/1999/02/22-rdf-syntax-ns#rest> _:l2 .
+_:l2 <http://www.w3.org/1999/02/22-rdf-syntax-ns#first> "b" .
+_:l2 <http://www.w3.org/1999/02/22-rdf-syntax-ns#rest> <http://www.w3.org/1999/02/22-rdf-syntax-ns#nil> .
