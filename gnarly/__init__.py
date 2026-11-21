@@ -121,6 +121,7 @@ class Description:
     def _check_references(self) -> None:
         self._blank_cycle = None
         i = 0
+
         for quad in self.frame.store.quads_for_pattern(None, None, self.subject, None):
             if i > 1:
                 break
@@ -219,7 +220,15 @@ class Description:
             and self._unreferenced
             and not self._annotates
             and not self._reifies_multiple
+            and not self._is_subject_in_other_graph()
         )
+
+    def _is_subject_in_other_graph(self) -> bool:
+        for quad in self.frame.store.quads_for_pattern(self.subject, None, None, None):
+            if quad.graph_name == self.frame.name:
+                continue
+            return True
+        return False
 
     def is_embeddable(self) -> bool:
         if not isinstance(self.subject, BlankNode):
