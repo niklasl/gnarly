@@ -93,13 +93,14 @@ def main() -> None:
             error += 1
             print(f"ERROR: (SyntaxError in {fpath}: {e})")
 
-    okmsg = f"{ok} OK"
-    if bad_ok > 0:
-        okmsg += f" {bad_ok} expected bad"
+    okcomment = f"{ok} OK, {bad_ok} expected bad" if bad_ok > 0 else f"{ok} OK"
+
+    okmsg = f"{ok + bad_ok} Sucessful ({okcomment})"
+
     okish = (
         okmsg
         if ok == samesize and mismatch == 0
-        else f"{ok + bad_ok} Sucessful ({okmsg}); {mismatch} same size but mismatched"
+        else f"{okmsg}; {mismatch} same size but mismatched"
     )
     print(
         f"Done checking {checked} files ({okish}, {differed} differed, {error} errors)."
