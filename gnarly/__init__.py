@@ -120,7 +120,7 @@ class Description:
         self._blank_cycle = None
         i = 0
         for quad in self.frame.store.quads_for_pattern(
-            None, None, self.subject, self.frame.name
+            None, None, self.subject, None
         ):
             if i > 1:
                 break
