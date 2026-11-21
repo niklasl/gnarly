@@ -237,6 +237,8 @@ class Description:
             return False
         if self._annotates:
             return False
+        if self.has_statements():
+            return False
         return self._referenced_once and not self._has_blank_cycle()
 
     def is_embeddable_annotation(self) -> bool:
