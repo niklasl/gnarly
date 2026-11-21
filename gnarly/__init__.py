@@ -196,11 +196,10 @@ class Description:
             if not isinstance(ro, Description):
                 return None
 
-            if not ro._referenced_once:
-                return None
-
             if ro.subject == RDF_NIL:
                 rest = [first]
+            elif not ro._referenced_once:
+                return None
             elif isinstance(ro.subject, BlankNode) and ro.list_items is not None:
                 rest = [first] + ro.list_items
 
