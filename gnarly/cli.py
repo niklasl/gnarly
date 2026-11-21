@@ -43,14 +43,15 @@ def main() -> None:
     base_iri: str | None = None
     prefixes: dict[str, str] = {}
 
+    if isinstance(args.base_iri, str):
+        base_iri = path_to_iri(args.base_iri)
+
     for fpath in args.sources:
         if fpath == "-":
-            reader = parse(sys.stdin.buffer, format=format)
+            reader = parse(sys.stdin.buffer, format=format, base_iri=base_iri)
         else:
-            file_iri = to_absolute_iri(fpath)
-            reader = parse(path=fpath, base_iri=file_iri)
-            if not base_iri and args.base_iri is True:
-                base_iri = file_iri
+            file_iri = path_to_iri(fpath)
+            reader = parse(path=fpath, base_iri=base_iri or file_iri)
 
         store.bulk_extend(reader)
 
@@ -60,7 +61,7 @@ def main() -> None:
         prefixes |= reader.prefixes
 
     if not args.sources:
-        reader = parse(sys.stdin.buffer, format=format)
+        reader = parse(sys.stdin.buffer, format=format, base_iri=base_iri)
         store.bulk_extend(reader)
         base_iri = reader.base_iri
         prefixes |= reader.prefixes
@@ -72,9 +73,6 @@ def main() -> None:
         dataset.canonicalize(CanonicalizationAlgorithm.RDFC_1_0)
         store = Store()
         store.extend(dataset)
-
-    if isinstance(args.base_iri, str):
-        base_iri = to_absolute_iri(args.base_iri)
 
     if args.output_format in {"rdf", "rdfxml", "xml"}:
         from .rdfxml import RdfXmlSerializer
@@ -119,7 +117,7 @@ def indent_char(s: str):
     )
 
 
-def to_absolute_iri(s: str) -> str:
+def path_to_iri(s: str) -> str:
     if re.match(r"^[A-Za-z][A-Za-z0-9+.-]*:", s):
         return s
 
