@@ -2,19 +2,20 @@ import re
 from typing import cast
 from xml.dom.minidom import Document, Element
 
-from pyoxigraph import BlankNode, Literal, NamedNode as IRI, Quad, Store, Triple
+from pyoxigraph import BlankNode, Literal
+from pyoxigraph import NamedNode as IRI
+from pyoxigraph import Quad, Store, Triple
 
-from . import (RDF_NIL, RDF_TYPE, RDF, Description, Frame, List,
-               SubjectTerm, Statement, Term)
-from .trig import (RDF_DIRLANGSTRING, RDF_LANGSTRING,
-                   XSD_BOOLEAN, XSD_DOUBLE, XSD_INTEGER,
-                   XSD_STRING, XSD, TurtleFormatter)
+from . import (RDF, RDF_NIL, RDF_TYPE, Description, Frame, List, Statement,
+               SubjectTerm, Term)
+from .trig import (RDF_DIRLANGSTRING, RDF_LANGSTRING, XSD, XSD_BOOLEAN,
+                   XSD_DOUBLE, XSD_INTEGER, XSD_STRING, TurtleFormatter)
 
 
 class JsonLdFormatter(TurtleFormatter):
     def shorten(self, iri: str) -> str:
         term = super().shorten(iri)
-        return term.removeprefix('<').removesuffix('>')
+        return term.removeprefix("<").removesuffix(">")
 
 
 class JsonLdBuilder:
@@ -63,7 +64,7 @@ class JsonLdBuilder:
 
     def to_key(self, iri: str) -> str:
         key = self.fmt.shorten(iri)
-        if key.startswith(':'):
+        if key.startswith(":"):
             key = key[1:]
         return key
 
@@ -97,7 +98,11 @@ class JsonLdBuilder:
             annotations = list(stmt.get_annotations())
             if annotations:
                 value["@annotation"] = [
-                    self.describe(annot) if annot.is_embeddable_annotation() else self.describe_object(annot)
+                    (
+                        self.describe(annot)
+                        if annot.is_embeddable_annotation()
+                        else self.describe_object(annot)
+                    )
                     for annot in annotations
                 ]
             elif len(value) == 1 and "@value" in value:
@@ -143,7 +148,7 @@ class JsonLdBuilder:
                 elif o.datatype == XSD_STRING:
                     vnode["@value"] = str(v)
                 elif o.datatype == XSD_BOOLEAN:
-                    vnode["@value"] = v == 'true'
+                    vnode["@value"] = v == "true"
                 elif o.datatype == XSD_INTEGER:
                     vnode["@value"] = int(v)
                 elif o.datatype == XSD_DOUBLE:

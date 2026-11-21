@@ -2,17 +2,18 @@ import re
 from typing import TextIO, cast
 from xml.dom.minidom import Document, Element
 
-from pyoxigraph import (BlankNode, Literal, NamedNode as IRI, Quad, RdfFormat, Store,
-                        Triple, parse)
+from pyoxigraph import BlankNode, Literal
+from pyoxigraph import NamedNode as IRI
+from pyoxigraph import Quad, RdfFormat, Store, Triple, parse
 
-from . import (RDF_NIL, RDF_TYPE, RDF, Description, Frame, List,
-               SubjectTerm, Statement, Term)
-from .trig import (RDF_DIRLANGSTRING, RDF_LANGSTRING,
-                   XSD_STRING, XSD, TurtleFormatter)
+from . import (RDF, RDF_NIL, RDF_TYPE, Description, Frame, List, Statement,
+               SubjectTerm, Term)
+from .trig import (RDF_DIRLANGSTRING, RDF_LANGSTRING, XSD, XSD_STRING,
+                   TurtleFormatter)
 
-NAME_START_CHAR = fr'(?:[A-Z]|_|[a-z]|[\u00C0-\u00D6]|[\u00D8-\u00F6]|[\u00F8-\u02FF]|[\u0370-\u037D]|[\u037F-\u1FFF]|[\u200C-\u200D]|[\u2070-\u218F]|[\u2C00-\u2FEF]|[\u3001-\uD7FF]|[\uF900-\uFDCF]|[\uFDF0-\uFFFD])'  # Missing: ...|[#x10000-#xEFFFF])
+NAME_START_CHAR = rf"(?:[A-Z]|_|[a-z]|[\u00C0-\u00D6]|[\u00D8-\u00F6]|[\u00F8-\u02FF]|[\u0370-\u037D]|[\u037F-\u1FFF]|[\u200C-\u200D]|[\u2070-\u218F]|[\u2C00-\u2FEF]|[\u3001-\uD7FF]|[\uF900-\uFDCF]|[\uFDF0-\uFFFD])"  # Missing: ...|[#x10000-#xEFFFF])
 QNAME_RE = re.compile(
-    fr'({NAME_START_CHAR}(?:{NAME_START_CHAR}|-|\.|[0-9]|\u00B7|[\u0300-\u036F]|[\u203F-\u2040])*)$'
+    rf"({NAME_START_CHAR}(?:{NAME_START_CHAR}|-|\.|[0-9]|\u00B7|[\u0300-\u036F]|[\u203F-\u2040])*)$"
 )
 
 ITS = "http://www.w3.org/2005/11/its"
@@ -25,12 +26,12 @@ class RdfXmlSerializer:
 
     def serialize(self, store: Store, out: TextIO) -> None:
         doc = self.to_document(store)
-        print(doc.toprettyxml(indent="  "), end='', file=out)
+        print(doc.toprettyxml(indent="  "), end="", file=out)
 
     def to_document(self, store: Store) -> Document:
         doc = Document()
 
-        root = doc.createElement('rdf:RDF')
+        root = doc.createElement("rdf:RDF")
         doc.appendChild(root)
 
         self.declare_prelude(root)
@@ -47,8 +48,8 @@ class RdfXmlSerializer:
 
     def declare_prelude(self, elem: Element) -> None:
         required_prefixes = {
-            'rdf': RDF,
-            'its': ITS,
+            "rdf": RDF,
+            "its": ITS,
         }
 
         if b := self.fmt.base_iri:
@@ -80,7 +81,7 @@ class RdfXmlSerializer:
         lname = m.group(0)
         if ns in self.fmt.ns_to_prefix:
             pfx = self.fmt.ns_to_prefix[ns]
-            qname = f"{pfx}:{lname}" if pfx != '' else lname
+            qname = f"{pfx}:{lname}" if pfx != "" else lname
             elem = doc.createElement(qname)
         else:
             elem = doc.createElementNS(ns, lname)
@@ -190,7 +191,11 @@ class RdfXmlSerializer:
                         else:
                             d_elem = doc.createElement("rdf:Description")
                             p_elem.appendChild(d_elem)
-                            attr = "rdf:about" if isinstance(item.subject, IRI) else "rdf:nodeID"
+                            attr = (
+                                "rdf:about"
+                                if isinstance(item.subject, IRI)
+                                else "rdf:nodeID"
+                            )
                             self.set_id(d_elem, item.subject.value, attr)
                 return
             elif n.is_reifying_object():

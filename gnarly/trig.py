@@ -1,11 +1,12 @@
 import re
 from typing import NamedTuple, TextIO
 
-from pyoxigraph import (BlankNode, Literal, NamedNode as IRI, Quad,
-                        RdfFormat, Store, Triple, parse)
+from pyoxigraph import BlankNode, Literal
+from pyoxigraph import NamedNode as IRI
+from pyoxigraph import Quad, RdfFormat, Store, Triple, parse
 
-from . import (RDF_NIL, RDF_TYPE, RDF, Description, Frame, List,
-               SubjectTerm, Statement, Term)
+from . import (RDF, RDF_NIL, RDF_TYPE, Description, Frame, List, Statement,
+               SubjectTerm, Term)
 
 RDF_DIRLANGSTRING = IRI(f"{RDF}dirLangString")
 RDF_LANGSTRING = IRI(f"{RDF}langString")
@@ -16,11 +17,11 @@ XSD_DECIMAL = IRI(f"{XSD}decimal")
 XSD_DOUBLE = IRI(f"{XSD}double")
 XSD_BOOLEAN = IRI(f"{XSD}boolean")
 
-LEAF_RE = re.compile(r'(.*?)([^#/:]+)$')
+LEAF_RE = re.compile(r"(.*?)([^#/:]+)$")
 
 PNAME_LOCAL_ESC = re.compile(r"([~!$&'()*+,;=/?#@]|^[.-]|[.-]$|%(?![0-9A-Fa-f]{2}))")
 
-LINEBREAK = re.compile('[\n\r]')
+LINEBREAK = re.compile("[\n\r]")
 
 SIGIL_KEYWORDS = 0
 UCASE_KEYWORDS = 1
@@ -28,7 +29,7 @@ LCASE_KEYWORDS = 2
 
 
 class TrigFormatOptions(NamedTuple):
-    indent: str = '  '
+    indent: str = "  "
     max_width: int = 88
     keyword_style: int = LCASE_KEYWORDS
     long_annotation_newline: bool = False
@@ -54,17 +55,17 @@ class TurtleFormatter:
             return f"{self.ns_to_prefix[iri]}:"
 
         parts = LEAF_RE.split(iri)
-        if len(parts) == 4 and parts[1] != '' and parts[1] in self.ns_to_prefix:
+        if len(parts) == 4 and parts[1] != "" and parts[1] in self.ns_to_prefix:
             lname = self.lname(parts[2])
             return f"{self.ns_to_prefix[parts[1]]}:{lname}"
 
         if self.base_iri and iri.startswith(self.base_iri):
             iri = iri[len(self.base_iri) :]
 
-        return f'<{iri}>'
+        return f"<{iri}>"
 
     def lname(self, v: str) -> str:
-        return PNAME_LOCAL_ESC.sub(r'\\\1', v)
+        return PNAME_LOCAL_ESC.sub(r"\\\1", v)
 
     def stringrepr(self, v: str) -> str:
         if LINEBREAK.search(v) is not None:
@@ -73,10 +74,10 @@ class TurtleFormatter:
             return f'"{self.clean(v)}"'
 
     def clean(self, v: str) -> str:
-        v = v.replace('\\', '\\\\')
-        v = v.replace('\r', '\\r')
-        v = v.replace('\n', '\\n')
-        v = v.replace('"', r'\"')
+        v = v.replace("\\", "\\\\")
+        v = v.replace("\r", "\\r")
+        v = v.replace("\n", "\\n")
+        v = v.replace('"', r"\"")
         return v
 
     def to_multiline_str(self, v: str) -> str:
@@ -87,20 +88,20 @@ class TurtleFormatter:
 
     def to_str(self, n: Term) -> str:
         if n == RDF_NIL:
-            return '()'
+            return "()"
         match n:
             case IRI(v):
                 return self.shorten(v)
             case BlankNode(v):
-                return f'_:{n.value}'
+                return f"_:{n.value}"
             case Literal(_):
                 v = n.value
                 if n.datatype == RDF_DIRLANGSTRING:
-                    return f'{self.stringrepr(v)}@{n.language}--{n.direction}'
+                    return f"{self.stringrepr(v)}@{n.language}--{n.direction}"
                 elif n.datatype == RDF_LANGSTRING:
-                    return f'{self.stringrepr(v)}@{n.language}'
+                    return f"{self.stringrepr(v)}@{n.language}"
                 elif n.datatype == XSD_STRING:
-                    return f'{self.stringrepr(v)}'
+                    return f"{self.stringrepr(v)}"
                 elif n.datatype == XSD_BOOLEAN:
                     return v
                 elif n.datatype == XSD_INTEGER:
@@ -108,17 +109,17 @@ class TurtleFormatter:
                 elif n.datatype == XSD_DECIMAL:
                     return f"{v}.0" if "." not in v else v
                 elif n.datatype == XSD_DOUBLE:
-                    return v + 'e0'
+                    return v + "e0"
                 else:
-                    v = v.replace('"', r'\"')
-                    return f'{self.stringrepr(v)}^^{self.to_str(n.datatype)}'
+                    v = v.replace('"', r"\"")
+                    return f"{self.stringrepr(v)}^^{self.to_str(n.datatype)}"
             case Triple(_):
-                return f'<<( {self.to_triple_str(n)} )>>'
+                return f"<<( {self.to_triple_str(n)} )>>"
 
     def to_triple_str(self, triple: Triple) -> str:
         s, p, o = triple
         pr = "a" if p == RDF_TYPE else self.to_str(p)
-        return f'{self.to_str(s)} {pr} {self.to_str(o)}'
+        return f"{self.to_str(s)} {pr} {self.to_str(o)}"
 
 
 class TrigSerializer:
@@ -186,8 +187,7 @@ class TrigSerializer:
         frame = Frame(store)
         self.serialize_graph(frame)
         named_frames = sorted(
-            (self.fmt.to_str(name), frame)
-            for name, frame in frame.get_named_frames()
+            (self.fmt.to_str(name), frame) for name, frame in frame.get_named_frames()
         )
         for name, frame in named_frames:
             self.writeln()
@@ -222,10 +222,10 @@ class TrigSerializer:
                 for triple in reifies:
                     trpl_s = self.fmt.to_triple_str(triple)
                     self.write_indent()
-                    self.write_line(f'<< {trpl_s} {rs}>>{self._padspace}.')
+                    self.write_line(f"<< {trpl_s} {rs}>>{self._padspace}.")
             else:
                 trpl_s = self.fmt.to_triple_str(reifies[0])
-                s_str = f'<< {trpl_s} {rs}>>'
+                s_str = f"<< {trpl_s} {rs}>>"
 
         self.write_indent()
 
@@ -300,8 +300,8 @@ class TrigSerializer:
             same_p = p == prev_p
 
             if same_p:
-                self._pending_separator = (
-                    self._padspace + ("," if not repeat_predicate else ";")
+                self._pending_separator = self._padspace + (
+                    "," if not repeat_predicate else ";"
                 )
 
             if self._pending_separator is not None:
@@ -313,9 +313,7 @@ class TrigSerializer:
             if same_p and not repeat_predicate:
                 self.write(self.options.indent)
             else:
-                self._pending_predicate = (
-                    "a" if p == RDF_TYPE else self.fmt.to_str(p)
-                )
+                self._pending_predicate = "a" if p == RDF_TYPE else self.fmt.to_str(p)
 
             prev_p = p
 
@@ -340,7 +338,7 @@ class TrigSerializer:
                 o = None
                 for reified in desc.get_reifies():
                     trpl_s = self.fmt.to_triple_str(reified)
-                    self.write_opt_predicate(f'<< {trpl_s} >>')
+                    self.write_opt_predicate(f"<< {trpl_s} >>")
                     break
             elif self.attempt_write_blank(stmt.o):
                 o = None
@@ -354,8 +352,7 @@ class TrigSerializer:
 
     def write_annotations(self, stmt: Statement) -> None:
         annotations = sorted(
-            stmt.get_annotations(),
-            key=lambda x: (isinstance(x.subject, IRI), x)
+            stmt.get_annotations(), key=lambda x: (isinstance(x.subject, IRI), x)
         )
         isnext = (
             len(annotations) > 1
@@ -544,10 +541,10 @@ def get_options(indent, max_width, style) -> TrigFormatOptions:
         indent=indent,
         max_width=max_width,
         keyword_style=keyword_style,
-        long_annotation_newline=style == 'longhand',
-        end_annotation_newline=style != 'classic',
-        end_bnode_newline=style != 'classic',
-        force_type_oneline=style == 'classic',
-        compact_delims=style == 'classic',
-        longhand=style == 'longhand',
+        long_annotation_newline=style == "longhand",
+        end_annotation_newline=style != "classic",
+        end_bnode_newline=style != "classic",
+        force_type_oneline=style == "classic",
+        compact_delims=style == "classic",
+        longhand=style == "longhand",
     )

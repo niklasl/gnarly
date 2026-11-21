@@ -3,7 +3,8 @@ from typing import TextIO
 
 from pyoxigraph import RdfFormat, Store, parse
 
-from .trig import TrigSerializer, TrigFormatOptions, TurtleFormatter, UCASE_KEYWORDS
+from .trig import (UCASE_KEYWORDS, TrigFormatOptions, TrigSerializer,
+                   TurtleFormatter)
 
 
 def rdf_to_sparql_ask(
@@ -32,5 +33,5 @@ def main() -> None:
     )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

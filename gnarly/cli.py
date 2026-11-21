@@ -9,16 +9,20 @@ from pyoxigraph import RdfFormat, Store, Triple, parse
 def main() -> None:
 
     argp = argparse.ArgumentParser()
-    argp.add_argument('-i', '--input-format', default='trig')
-    argp.add_argument('-o', '--output-format', default='trig')
+    argp.add_argument("-i", "--input-format", default="trig")
+    argp.add_argument("-o", "--output-format", default="trig")
     argp.add_argument(
-        '-b', '--base-iri', help='Set or use source as base IRI', const=True, nargs='?'
+        "-b", "--base-iri", help="Set or use source as base IRI", const=True, nargs="?"
     )
-    argp.add_argument('-I', '--indent', type=indent_char, default='2')
-    argp.add_argument('-M', '--max-width', type=int, default=88)
-    argp.add_argument('-S', '--style')
-    argp.add_argument('--c14n', help='Relabel blank nodes using RDF Canonicalization', action='store_true')
-    argp.add_argument('sources', metavar='SOURCE', nargs='*')
+    argp.add_argument("-I", "--indent", type=indent_char, default="2")
+    argp.add_argument("-M", "--max-width", type=int, default=88)
+    argp.add_argument("-S", "--style")
+    argp.add_argument(
+        "--c14n",
+        help="Relabel blank nodes using RDF Canonicalization",
+        action="store_true",
+    )
+    argp.add_argument("sources", metavar="SOURCE", nargs="*")
     args = argp.parse_args()
 
     match args.input_format:
@@ -40,7 +44,7 @@ def main() -> None:
     prefixes: dict[str, str] = {}
 
     for fpath in args.sources:
-        if fpath == '-':
+        if fpath == "-":
             reader = parse(sys.stdin.buffer, format=format)
         else:
             file_iri = to_absolute_iri(fpath)
@@ -62,7 +66,8 @@ def main() -> None:
         prefixes |= reader.prefixes
 
     if args.c14n:
-        from pyoxigraph import Dataset, CanonicalizationAlgorithm
+        from pyoxigraph import CanonicalizationAlgorithm, Dataset
+
         dataset = Dataset(store)
         dataset.canonicalize(CanonicalizationAlgorithm.RDFC_1_0)
         store = Store()
@@ -71,27 +76,26 @@ def main() -> None:
     if isinstance(args.base_iri, str):
         base_iri = to_absolute_iri(args.base_iri)
 
-    if args.output_format in {'rdf', 'rdfxml', 'xml'}:
+    if args.output_format in {"rdf", "rdfxml", "xml"}:
         from .rdfxml import RdfXmlSerializer
 
         RdfXmlSerializer(prefixes, base_iri).serialize(store, sys.stdout)
 
-    elif args.output_format in {'jsonld', 'json-ld', 'json'}:
+    elif args.output_format in {"jsonld", "json-ld", "json"}:
         import json
+
         from .jsonld import JsonLdBuilder
 
         builder = JsonLdBuilder(prefixes=prefixes, base_iri=base_iri)
         data = builder.to_data(store)
         json.dump(data, sys.stdout, indent=2)
 
-    elif args.output_format in {'trig', 'ttl', 'turtle'}:
+    elif args.output_format in {"trig", "ttl", "turtle"}:
         from .trig import TrigSerializer, get_options
 
         options = get_options(args.indent, args.max_width, args.style or "modern")
 
-        TrigSerializer(
-            sys.stdout, prefixes, base_iri, options=options
-        ).serialize(store)
+        TrigSerializer(sys.stdout, prefixes, base_iri, options=options).serialize(store)
 
     else:
         from pyoxigraph import serialize
@@ -106,22 +110,22 @@ def main() -> None:
 
 
 def indent_char(s: str):
-    if s == 't':
-        return '\t'
+    if s == "t":
+        return "\t"
     if s.isdecimal():
-        return ' ' * int(s)
+        return " " * int(s)
     raise argparse.ArgumentTypeError(
         f"Invalid indent value: `{s}` (must be a number or `t`)"
     )
 
 
 def to_absolute_iri(s: str) -> str:
-    if re.match(r'^[A-Za-z][A-Za-z0-9+.-]*:', s):
+    if re.match(r"^[A-Za-z][A-Za-z0-9+.-]*:", s):
         return s
 
     path = Path(s)
     return path.absolute().as_uri()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

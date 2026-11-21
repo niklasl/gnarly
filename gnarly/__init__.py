@@ -1,16 +1,18 @@
 from __future__ import annotations
+
 from itertools import chain
 from typing import Iterator, cast
 
-from pyoxigraph import (BlankNode, DefaultGraph, Literal, NamedNode as IRI,
-                        Quad, QuerySolutions, Store, Triple)
+from pyoxigraph import BlankNode, DefaultGraph, Literal
+from pyoxigraph import NamedNode as IRI
+from pyoxigraph import Quad, QuerySolutions, Store, Triple
 
-RDF = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#'
-RDF_TYPE = IRI(f'{RDF}type')
-RDF_REIFIES = IRI(f'{RDF}reifies')
-RDF_FIRST = IRI(f'{RDF}first')
-RDF_REST = IRI(f'{RDF}rest')
-RDF_NIL = IRI(f'{RDF}nil')
+RDF = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+RDF_TYPE = IRI(f"{RDF}type")
+RDF_REIFIES = IRI(f"{RDF}reifies")
+RDF_FIRST = IRI(f"{RDF}first")
+RDF_REST = IRI(f"{RDF}rest")
+RDF_NIL = IRI(f"{RDF}nil")
 
 LIST_PREDICATES = {RDF_FIRST, RDF_REST}
 
@@ -39,10 +41,10 @@ class Frame:
 
     def get_descriptions(self) -> Iterator[Description]:
         results = self.store.query(
-            'select distinct ?s { ?s ?p [] }', default_graph=self.name
+            "select distinct ?s { ?s ?p [] }", default_graph=self.name
         )
         for row in cast(QuerySolutions, results):
-            s = row['s']
+            s = row["s"]
             d = self._get_description(s)
             if d.is_subject():
                 yield d
@@ -119,9 +121,7 @@ class Description:
     def _check_references(self) -> None:
         self._blank_cycle = None
         i = 0
-        for quad in self.frame.store.quads_for_pattern(
-            None, None, self.subject, None
-        ):
+        for quad in self.frame.store.quads_for_pattern(None, None, self.subject, None):
             if i > 1:
                 break
             i += 1
@@ -277,9 +277,7 @@ class Description:
 
     def get_simple_types(self) -> Iterator[IRI]:
         for triple in self._triples(RDF_TYPE):
-            if isinstance(triple.object, IRI) and not self.frame._is_annotated(
-                triple
-            ):
+            if isinstance(triple.object, IRI) and not self.frame._is_annotated(triple):
                 yield triple.object
 
     def get_reifies(self) -> Iterator[Triple]:
@@ -324,7 +322,9 @@ class Statement:
     _triple: Triple
     _key: SortKey
 
-    def __init__(self, s: Description, triple: Triple, o: Description | Literal | Triple):
+    def __init__(
+        self, s: Description, triple: Triple, o: Description | Literal | Triple
+    ):
         self.s = s
         self.p = triple.predicate
         self.o = o
@@ -343,7 +343,10 @@ class Statement:
 
 def make_sort_key(term: Term, reifies_s: SubjectTerm | None = None) -> SortKey:
     isblank = isinstance(term, BlankNode) or term == RDF_NIL
-    s1: tuple[bool, str] = (isblank, str(term) if isinstance(term, Triple) else term.value)
+    s1: tuple[bool, str] = (
+        isblank,
+        str(term) if isinstance(term, Triple) else term.value,
+    )
     s2: tuple[bool, str, int] = (
         (isinstance(reifies_s, BlankNode), reifies_s.value) + (1,)
         if reifies_s
